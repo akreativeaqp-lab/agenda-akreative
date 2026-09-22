@@ -72,7 +72,35 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
  .app{padding:12px;overflow-x:hidden}.logo{height:52px}.logo img{width:min(330px,78vw)}.subtitle{font-size:14px;letter-spacing:2px}h1{font-size:24px;margin-top:14px}.periodo{font-size:13px}
  .acciones{margin:14px 0;gap:8px}.acciones button{min-height:44px;padding:12px 13px;font-size:13px;flex:1 1 150px}
  .agenda{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
- .dia{min-height:0;height:auto;border-radius:8px}.cabecera-dia{padding-top:6px}.semana{font-size:11px}.numero{font-size:27px}.mes{font-size:11px}.estado{margin-top:6px;padding:0 4px}.punto{width:9px;height:9px}.estado-titulo{display:none}.horario{font-size:10px;line-height:1.1}.detalle{font-size:10px}.segmento-detalle{padding:4px 2px}.reserva-nombre{font-size:9px}.segmentos{height:8px;margin:6px 4px 0}
+ .dia{min-height:0;height:auto;border-radius:8px}.cabecera-dia{padding-top:6px}.semana{font-size:11px}.numero{font-size:27px}.mes{font-size:11px}.estado{margin-top:6px;padding:0 4px}.punto{width:9px;height:9px}.estado-titulo{display:none}.horario{
+  font-size:10px;
+  line-height:1.1;
+}
+
+.detalle{
+  font-size:10px;
+}
+
+.segmento-detalle{
+  height:28px;
+  min-height:28px;
+  padding:4px 2px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  overflow:hidden;
+  white-space:nowrap;
+}
+
+.segmento-disponible,
+.segmento-reservado{
+  height:28px;
+  min-height:28px;
+  font-size:10px;
+  line-height:1;
+  font-weight:700;
+}.reserva-nombre{font-size:9px}.segmentos{height:8px;margin:6px 4px 0}
  .leyenda{gap:18px;font-size:16px}.color{width:14px;height:14px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
 }
 
