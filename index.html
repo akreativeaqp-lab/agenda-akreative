@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda AKREATIVE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080808 url("fond.png") center -55px/cover fixed no-repeat;color:#fff;font-family:Arial,Helvetica,sans-serif}
+.app{max-width:1100px;margin:auto;padding:25px}
+header{text-align:center;margin-bottom:22px;padding-top:18px}
+.logo{display:flex;justify-content:center;align-items:center;height:62px;margin-bottom:8px}.logo img{width:min(430px,70vw);height:auto;display:block}
+.subtitle{font-size:18px;letter-spacing:3px;margin-top:5px;color:#ddd}
+h1{margin:12px 0 10px;font-size:34px;letter-spacing:2px}
+.periodo{color:#aaa;font-size:16px;margin-top:8px}
+.acciones{display:flex;justify-content:center;gap:12px;margin:20px 0;flex-wrap:wrap}
+button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weight:bold;cursor:pointer}
+.btn-principal{background:#e51d2a;color:#fff}
+.btn-secundario{background:#222;color:#fff;border:1px solid #444}
+.agenda{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.dia{background:#f5f5f5;color:#111;border-radius:12px;overflow:hidden;min-height:285px;position:relative;padding-bottom:10px}
+.cabecera-dia{text-align:center;padding:11px 5px 5px}
+.semana{font-size:18px;font-weight:800}
+.numero{font-size:44px;font-weight:800;line-height:1;margin:5px 0}
+.mes{font-size:16px;font-weight:800}
+.estado{text-align:center;margin-top:13px;padding:0 8px}
+.punto{width:18px;height:18px;border-radius:50%;background:#BFE8CC;margin:0 auto 7px}
+.dia.completo .punto{background:#F3B5B5 !important}
+.estado-titulo{display:none}
+.horario{font-size:19px;font-weight:700;margin-top:8px;line-height:1.15}
+.segmentos{margin:14px 9px 0;border-radius:8px;overflow:hidden;height:22px;background:#00b956;display:flex}
+.segmento{height:100%}
+.segmento.ocupado{background:#e51d2a}
+.detalle{font-size:19px;line-height:1.15;margin-top:8px;color:#333}
+.segmento-detalle{display:block;border-radius:6px;padding:8px 3px;white-space:nowrap}
+.segmento-disponible{background:#BFE8CC;color:inherit}
+.segmento-reservado{background:#F3B5B5;color:inherit}
+.reserva-nombre{font-weight:800;margin-top:6px;font-size:12px}
+.dia.completo{background:#e51d2a;color:#fff}
+.dia.completo .detalle{color:#fff}
+.dia.completo .segmentos{background:#fff}
+.dia.completo .segmento.ocupado{background:#fff}
+.leyenda{display:flex;justify-content:center;gap:80px;margin-top:24px;color:#fff;font-size:26px;font-weight:800;flex-wrap:wrap}
+.leyenda-item{display:flex;align-items:center;gap:7px}
+.color{width:24px;height:24px;border-radius:50%}
+.rojo{background:#e51d2a}.verde{background:#00b956}
+
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:20;align-items:center;justify-content:center;padding:20px}
+.modal.abierto{display:flex}
+.modal-box{width:min(480px,100%);background:#151515;border:1px solid #333;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-box h2{margin:0 0 18px;font-size:25px}
+.cerrar{float:right;background:none;color:#aaa;font-size:24px;padding:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.campo{display:flex;flex-direction:column;gap:6px}
+.campo.full{grid-column:1/-1}
+.campo label{font-size:13px;color:#bbb}
+.campo input,.campo select{width:100%;padding:12px;border-radius:8px;border:1px solid #666;background:#f5f5f5;color:#111;font-size:16px;font-weight:600;outline:none}.campo input:focus,.campo select:focus{border-color:#e51d2a;box-shadow:0 0 0 2px rgba(229,29,42,.2)}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.btn-cancelar{background:#2a2a2a;color:#fff}
+.reservas-lista{max-height:55vh;overflow:auto}
+.reserva-row{border-bottom:1px solid #333;padding:12px 0}
+.reserva-row strong{display:block}
+.reserva-row span{color:#bbb;font-size:13px}
+.reserva-row-actions{display:flex;gap:8px;margin-top:8px}
+.reserva-row-actions button{padding:7px 10px;font-size:12px}
+.btn-exportar{background:#00b956;color:#111}
+.dia{cursor:pointer}
+.dia:focus{outline:3px solid #00b956;outline-offset:2px}
+.vacio{color:#aaa;text-align:center;padding:25px 0}
+
+@media(max-width:600px){
+ .app{padding:12px;overflow-x:hidden}.logo{height:52px}.logo img{width:min(330px,78vw)}.subtitle{font-size:14px;letter-spacing:2px}h1{font-size:24px;margin-top:14px}.periodo{font-size:13px}
+ .acciones{margin:14px 0;gap:8px}.acciones button{min-height:44px;padding:12px 13px;font-size:13px;flex:1 1 150px}
+ .agenda{grid-template-columns:1fr;gap:10px}
+ .dia{min-height:255px;border-radius:10px}.cabecera-dia{padding-top:9px}.semana{font-size:17px}.numero{font-size:42px}.mes{font-size:16px}.estado{margin-top:10px;padding:0 12px}.punto{width:15px;height:15px}.estado-titulo{display:none}.horario{font-size:20px;line-height:1.15}.detalle{font-size:20px}.segmento-detalle{padding:8px 4px}.reserva-nombre{font-size:11px}.segmentos{height:18px;margin:11px 7px 0}
+ .leyenda{gap:30px;font-size:20px}.color{width:20px;height:20px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="logo"><img src="AKREATIVE BLANCO.png" alt="AKREATIVE"></div>
+  <div class="subtitle">VIDEO & FOTOGRAFÍA</div>
+  <h1>AGENDA DISPONIBLE</h1>
+  <div class="periodo" id="periodo"></div>
+</header>
+
+<div class="acciones">
+  <button class="btn-principal" onclick="abrirReserva()">＋ NUEVA RESERVA</button>
+  <button class="btn-secundario" onclick="abrirReservas()">📋 TODAS LAS RESERVAS</button>
+  <button class="btn-exportar" onclick="exportarAgenda()">📸 EXPORTAR AGENDA COMO IMAGEN</button>
+</div>
+
+<section class="agenda" id="agenda"></section>
+
+<div class="leyenda">
+  <div class="leyenda-item"><span class="color rojo"></span> Ocupado</div>
+  <div class="leyenda-item"><span class="color verde"></span> Disponible</div>
+</div>
+</div>
+
+<!-- RESERVAS DE UNA FECHA -->
+<div class="modal" id="modalDia">
+  <div class="modal-box">
+    <button class="cerrar" onclick="cerrarModales()">×</button>
+    <h2 id="tituloDia"></h2>
+    <div class="reservas-lista" id="listaDia"></div>
+    <div class="form-actions">
+      <button class="btn-principal" onclick="abrirReservaDesdeDia()">＋ Agregar horario</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUEVA RESERVA -->
+<div class="modal" id="modalReserva">
+  <div class="modal-box">
+    <button class="cerrar" onclick="cerrarModales()">×</button>
+    <h2 id="tituloReserva">＋ Nueva reserva</h2>
+    <div class="form-grid">
+      <div class="campo full">
+        <label>Nombre de la reserva</label>
+        <input id="nombre" type="text" placeholder="Ej. Sesión Fotográfica">
+      </div>
+      <div class="campo">
+        <label>Fecha</label>
+        <input id="fecha" type="date">
+      </div>
+      <div class="campo">
+        <label>Desde</label>
+        <select id="inicio"></select>
+      </div>
+      <div class="campo">
+        <label>Hasta</label>
+        <select id="fin"></select>
+      </div>
+       <div class="campo full" style="margin-top:2px;">
+         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+           <input id="todoElDia" type="checkbox" style="width:20px;height:20px;accent-color:#e51d2a;">
+           <span>TODO EL DÍA (9 AM – 9 PM)</span>
+         </label>
+       </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancelar" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn-principal" onclick="guardarReserva()">Guardar reserva</button>
+    </div>
+  </div>
+</div>
+
+<!-- TODAS LAS RESERVAS -->
+<div class="modal" id="modalLista">
+  <div class="modal-box">
+    <button class="cerrar" onclick="cerrarModales()">×</button>
+    <h2>📋 Todas las reservas</h2>
+    <div class="reservas-lista" id="listaReservas"></div>
+  </div>
+</div>
+
+<script>
+const DIAS = [
+ "2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26",
+ "2026-09-27","2026-09-28","2026-09-29","2026-09-30","2026-10-01",
+ "2026-10-02","2026-10-03","2026-10-04","2026-10-05","2026-10-06"
+];
+
+const nombresDia = ["DOM","LUN","MAR","MIÉ","JUE","VIE","SÁB"];
+const nombresMes = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+
+function actualizarPeriodo(){
+  const p=document.getElementById("periodo");
+  if(p) p.textContent="22 DE SEPTIEMBRE — 6 DE OCTUBRE, 2026";
+}
+
+let reservas = JSON.parse(localStorage.getItem("akreative_reservas") || "null");
+let fechaSeleccionada = DIAS[0];
+let editingReservaId = null;
+
+if (!reservas) {
+  reservas = [
+    {id:1,nombre:"Sesión Fotográfica",fecha:"2026-09-23",inicio:"15:00",fin:"17:00"},
+    {id:2,nombre:"Sesión Fotográfica",fecha:"2026-09-24",inicio:"09:00",fin:"11:00"},
+    {id:3,nombre:"Sesión Fotográfica",fecha:"2026-09-26",inicio:"08:00",fin:"10:00"},
+    {id:4,nombre:"Sesión Fotográfica",fecha:"2026-09-29",inicio:"18:00",fin:"20:00"},
+    {id:5,nombre:"Sesión Fotográfica",fecha:"2026-10-02",inicio:"08:00",fin:"10:00"},
+    {id:6,nombre:"Día ocupado",fecha:"2026-10-05",inicio:"09:00",fin:"21:00"},
+    {id:7,nombre:"Sesión Fotográfica",fecha:"2026-10-06",inicio:"11:00",fin:"13:00"}
+  ];
+  guardarDatos();
+}
+
+function guardarDatos(){
+  localStorage.setItem("akreative_reservas", JSON.stringify(reservas));
+}
+
+function minutos(hora){
+  const [h,m] = hora.split(":").map(Number);
+  return h*60+m;
+}
+
+function horaTexto(hora){
+  let [h,m] = hora.split(":").map(Number);
+  const ap = h >= 12 ? "p.m." : "a.m.";
+  h = h % 12 || 12;
+  return `${h} ${ap === "a.m." ? "AM" : "PM"}`;
+}
+
+function reservasDia(fecha){
+  return reservas.filter(r => r.fecha === fecha).sort((a,b)=>a.inicio.localeCompare(b.inicio));
+}
+
+function render(){
+  const agenda = document.getElementById("agenda");
+  agenda.innerHTML = "";
+
+  DIAS.forEach(fecha=>{
+    const d = new Date(fecha+"T12:00:00");
+    const rs = reservasDia(fecha);
+
+    const inicioAgenda = 9*60;
+    const finAgenda = 21*60;
+    const total = finAgenda-inicioAgenda;
+
+    let ocupados = [];
+    rs.forEach(r=>{
+      const ini = Math.max(minutos(r.inicio), inicioAgenda);
+      const fin = Math.min(minutos(r.fin), finAgenda);
+      if(fin>ini) ocupados.push({ini,fin,nombre:r.nombre});
+    });
+
+    let segmentos = [];
+    let cursor = inicioAgenda;
+
+    ocupados.forEach(o=>{
+      if(o.ini>cursor) segmentos.push({tipo:"libre",ini:cursor,fin:o.ini});
+      segmentos.push({tipo:"ocupado",ini:o.ini,fin:o.fin,nombre:o.nombre});
+      cursor = Math.max(cursor,o.fin);
+    });
+    if(cursor<finAgenda) segmentos.push({tipo:"libre",ini:cursor,fin:finAgenda});
+
+    const completo = ocupados.length===1 && ocupados[0].ini===inicioAgenda && ocupados[0].fin===finAgenda;
+
+    const card = document.createElement("div");
+    card.className = "dia" + (completo ? " completo" : "");
+
+    let detalle = "";
+    if(rs.length===0){
+      detalle = `<div class="horario segmento-detalle segmento-disponible">9 AM – 9 PM</div>`;
+    } else if(completo){
+      detalle = ``;
+    } else {
+      detalle = segmentos.map(s=>{
+        const horario = `${horaTexto(minHora(s.ini))} – ${horaTexto(minHora(s.fin))}`;
+        if(s.tipo === "libre"){
+          return `<div class="horario segmento-detalle segmento-disponible">${horario}</div>`;
+        }
+        return `<div class="horario segmento-detalle segmento-reservado">${horario}</div>`;
+      }).join("");
+    }
+
+    const barras = segmentos.map(s=>{
+      const ancho = ((s.fin-s.ini)/total)*100;
+      return `<span class="segmento ${s.tipo==="ocupado"?"ocupado":""}" style="width:${ancho}%"></span>`;
+    }).join("");
+
+    card.innerHTML = `
+      <div class="cabecera-dia">
+        <div class="semana">${nombresDia[d.getDay()]}</div>
+        <div class="numero">${d.getDate()}</div>
+        <div class="mes">${nombresMes[d.getMonth()]}</div>
+      </div>
+      <div class="estado">
+        <div class="punto" style="background:${completo?"#F3B5B5":"#BFE8CC"}"></div>
+        ${detalle}
+      </div>
+      <div class="segmentos">${barras}</div>
+    `;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Gestionar reservas del ${d.getDate()} de ${nombresMes[d.getMonth()]}`);
+    card.addEventListener("click", ()=>abrirDia(fecha));
+    card.addEventListener("keydown", e=>{
+      if(e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        abrirDia(fecha);
+      }
+    });
+    agenda.appendChild(card);
+  });
+}
+
+function minHora(m){
+  const h=Math.floor(m/60), mm=m%60;
+  return String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0");
+}
+
+function escapeHtml(text){
+  return text.replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+function llenarHorarios(){
+  const opciones=[];
+  // Horario de trabajo de AKREATIVE: 9:00 a.m. a 9:00 p.m.
+  for(let h=9; h<=21; h++){
+    for(let m of [0,30]){
+      if(h===21 && m===30) continue;
+      const v=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+      opciones.push(`<option value="${v}">${horaTexto(v)}</option>`);
+    }
+  }
+  ["inicio","fin"].forEach(id=>{
+    document.getElementById(id).innerHTML=opciones.join("");
+  });
+  document.getElementById("inicio").value="09:00";
+  actualizarFinAutomatico();
+}
+
+function actualizarFinAutomatico(){
+  const inicio=document.getElementById("inicio");
+  const fin=document.getElementById("fin");
+  if(!inicio || !fin) return;
+
+  const inicioMin=minutos(inicio.value);
+  const finActual=fin.value;
+  const finPredeterminado=Math.min(inicioMin+120,21*60);
+
+  // Mantener siempre las opciones posteriores al inicio.
+  [...fin.options].forEach(op=>{
+    op.disabled=minutos(op.value)<=inicioMin;
+  });
+
+  // Al cambiar el inicio, proponemos automáticamente 2 horas.
+  const objetivo=minHora(finPredeterminado);
+  fin.value=objetivo;
+
+  // Si por alguna razón no existe (por ejemplo, inicio 9:00 p.m.), usar la última hora disponible.
+  if(!fin.value || minutos(fin.value)<=inicioMin){
+    const validas=[...fin.options].filter(op=>!op.disabled);
+    if(validas.length) fin.value=validas[validas.length-1].value;
+  }
+}
+
+function actualizarTodoElDia(){
+  const chk=document.getElementById("todoElDia");
+  const inicio=document.getElementById("inicio");
+  const fin=document.getElementById("fin");
+  if(!chk || !inicio || !fin) return;
+  inicio.disabled=chk.checked;
+  fin.disabled=chk.checked;
+  if(chk.checked){
+    inicio.value="09:00";
+    fin.value="21:00";
+  }else{
+    inicio.disabled=false;
+    fin.disabled=false;
+    actualizarFinAutomatico();
+  }
+}
+
+function abrirDia(fecha){
+  fechaSeleccionada = fecha;
+  const d = new Date(fecha+"T12:00:00");
+  document.getElementById("tituloDia").textContent = `${nombresDia[d.getDay()]} ${d.getDate()} ${nombresMes[d.getMonth()]}`;
+  const lista = document.getElementById("listaDia");
+  const delDia = reservasDia(fecha);
+  lista.innerHTML = delDia.length ? delDia.map(r=>`
+    <div class="reserva-row">
+      <strong>${escapeHtml(r.nombre)}</strong>
+      <span>${horaTexto(r.inicio)} – ${horaTexto(r.fin)}</span>
+      <div class="reserva-row-actions">
+        <button class="btn-secundario" onclick="editarReserva(${r.id})">Editar</button>
+        <button class="btn-principal" onclick="eliminarReserva(${r.id})">Eliminar</button>
+      </div>
+    </div>`).join("") : '<div class="vacio">No hay reservas para este día.</div>';
+  document.getElementById("modalDia").classList.add("abierto");
+}
+
+function abrirReserva(){
+  editarReserva(null, DIAS[0]);
+}
+
+function abrirReservaDesdeDia(){
+  editarReserva(null, fechaSeleccionada);
+}
+
+function editarReserva(id, fecha=fechaSeleccionada){
+  editingReservaId = id;
+  const reserva = id === null ? null : reservas.find(r=>r.id===id);
+  document.getElementById("tituloReserva").textContent = reserva ? "✎ Editar reserva" : "＋ Nueva reserva";
+  document.getElementById("nombre").value = reserva ? reserva.nombre : "";
+  document.getElementById("fecha").value = reserva ? reserva.fecha : fecha;
+  document.getElementById("inicio").value = reserva ? reserva.inicio : "09:00";
+  const esTodoElDia = !!(reserva && reserva.inicio==="09:00" && reserva.fin==="21:00");
+  document.getElementById("todoElDia").checked = esTodoElDia;
+  actualizarTodoElDia();
+  if(reserva && !esTodoElDia) document.getElementById("fin").value = reserva.fin;
+  cerrarModales();
+  document.getElementById("modalReserva").classList.add("abierto");
+  document.getElementById("nombre").focus();
+}
+
+function eliminarReserva(id){
+  const reserva = reservas.find(r=>r.id===id);
+  if(!reserva || !confirm(`¿Eliminar la reserva "${reserva.nombre}"?`)) return;
+  reservas = reservas.filter(r=>r.id!==id);
+  guardarDatos();
+  actualizarPeriodo();
+render();
+  abrirDia(fechaSeleccionada);
+}
+
+function abrirReservaAnterior(){
+  document.getElementById("modalReserva").classList.add("abierto");
+  document.getElementById("fecha").value = DIAS[0];
+  document.getElementById("inicio").value="09:00";
+  actualizarFinAutomatico();
+  document.getElementById("nombre").focus();
+}
+
+function guardarReserva(){
+  const nombre=document.getElementById("nombre").value.trim();
+  const fecha=document.getElementById("fecha").value;
+  const todoElDia=document.getElementById("todoElDia").checked;
+  const inicio=todoElDia ? "09:00" : document.getElementById("inicio").value;
+  const fin=todoElDia ? "21:00" : document.getElementById("fin").value;
+
+  if(!nombre || !fecha || !inicio || !fin){
+    alert("Completa todos los campos.");
+    return;
+  }
+  if(minutos(fin)<=minutos(inicio)){
+    alert("La hora de término debe ser posterior a la hora de inicio.");
+    return;
+  }
+  if(minutos(inicio)<9*60 || minutos(fin)>21*60){
+    alert("La agenda funciona de 9:00 a.m. a 9:00 p.m.");
+    return;
+  }
+
+  // Evitar reservas que se crucen con otra ya existente.
+  const conflicto=reservas.find(r=>r.id!==editingReservaId &&
+    r.fecha===fecha &&
+    minutos(inicio)<minutos(r.fin) &&
+    minutos(fin)>minutos(r.inicio)
+  );
+
+  if(conflicto){
+    alert(`Ese horario ya está ocupado: ${horaTexto(conflicto.inicio)} – ${horaTexto(conflicto.fin)}.`);
+    return;
+  }
+
+  if(editingReservaId === null){
+    reservas.push({id:Date.now(),nombre,fecha,inicio,fin});
+  }else{
+    const reserva = reservas.find(r=>r.id===editingReservaId);
+    if(reserva) Object.assign(reserva,{nombre,fecha,inicio,fin});
+  }
+  guardarDatos();
+  const fechaParaAbrir = fecha;
+  editingReservaId = null;
+  cerrarModales();
+  render();
+  abrirDia(fechaParaAbrir);
+}
+
+function abrirReservas(){
+  const lista=document.getElementById("listaReservas");
+  const ordenadas=[...reservas].sort((a,b)=>
+    (a.fecha+a.inicio).localeCompare(b.fecha+b.inicio)
+  );
+
+  if(!ordenadas.length){
+    lista.innerHTML='<div class="vacio">No hay reservas.</div>';
+  }else{
+    lista.innerHTML=ordenadas.map(r=>{
+      const d=new Date(r.fecha+"T12:00:00");
+      return `<div class="reserva-row">
+        <strong>${escapeHtml(r.nombre)}</strong>
+        <span>${nombresDia[d.getDay()]} ${d.getDate()} ${nombresMes[d.getMonth()]} ${d.getFullYear()} · ${horaTexto(r.inicio)} – ${horaTexto(r.fin)}</span>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("modalLista").classList.add("abierto");
+}
+
+function escapeXml(text){
+  return String(text).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
+}
+
+function exportarAgenda(){
+  const ancho=1080, alto=1920, margen=20, cabecera=265, gap=8;
+  const tarjetaAncho=(ancho-margen*2-gap*4)/5;
+  const tarjetaAlto=470;
+  const canvas=document.createElement("canvas");
+  canvas.width=ancho; canvas.height=alto;
+  const ctx=canvas.getContext("2d");
+
+  const cargarImagen=(src)=>new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=reject;
+    img.src=src;
+  });
+
+  Promise.all([cargarImagen("fond.png"),cargarImagen("AKREATIVE BLANCO.png")]).then(([fondo,logo])=>{
+    // Fondo completo, sin transparencia. Se recorta como "cover" para llenar 1080x1920.
+    ctx.fillStyle="#080808";
+    ctx.fillRect(0,0,ancho,alto);
+    const escala=Math.max(ancho/fondo.width,alto/fondo.height);
+    const fw=fondo.width*escala, fh=fondo.height*escala;
+    ctx.drawImage(fondo,(ancho-fw)/2,(alto-fh)/2,fw,fh);
+    ctx.fillStyle="rgba(0,0,0,.08)";
+    ctx.fillRect(0,0,ancho,alto);
+
+    // Logo y encabezado
+    const logoW=430, logoH=76;
+    ctx.drawImage(logo,ancho/2-logoW/2,62,logoW,logoH);
+    ctx.textAlign="center";
+    ctx.fillStyle="#fff";
+    ctx.font="bold 36px Arial, Helvetica, sans-serif";
+    ctx.fillText("AGENDA DISPONIBLE",ancho/2,184);
+    ctx.fillStyle="#ddd";
+    ctx.font="23px Arial, Helvetica, sans-serif";
+    ctx.fillText("22 DE SEPTIEMBRE — 6 DE OCTUBRE, 2026",ancho/2,232);
+
+    DIAS.forEach((fecha,index)=>{
+      const d=new Date(fecha+"T12:00:00"), rs=reservasDia(fecha);
+      const x=margen+(index%5)*(tarjetaAncho+gap);
+      const y=cabecera+Math.floor(index/5)*(tarjetaAlto+gap);
+      const inicioAgenda=540, finAgenda=1260, total=720;
+      const ocupados=rs.map(r=>({ini:Math.max(minutos(r.inicio),inicioAgenda),fin:Math.min(minutos(r.fin),finAgenda)})).filter(o=>o.fin>o.ini);
+      const segmentos=[], completo=ocupados.length===1&&ocupados[0].ini===inicioAgenda&&ocupados[0].fin===finAgenda;
+      let cursor=inicioAgenda;
+      ocupados.forEach(o=>{
+        if(o.ini>cursor) segmentos.push({tipo:"libre",ini:cursor,fin:o.ini});
+        segmentos.push({tipo:"ocupado",ini:o.ini,fin:o.fin});
+        cursor=Math.max(cursor,o.fin);
+      });
+      if(cursor<finAgenda) segmentos.push({tipo:"libre",ini:cursor,fin:finAgenda});
+
+      ctx.fillStyle=completo?"#e51d2a":"#f5f5f5";
+      roundRect(ctx,x,y,tarjetaAncho,tarjetaAlto,18); ctx.fill();
+      const color=completo?"#fff":"#111";
+      ctx.fillStyle=color;
+      ctx.textAlign="center";
+      ctx.font="800 22px Arial, Helvetica, sans-serif";
+      ctx.fillText(nombresDia[d.getDay()],x+tarjetaAncho/2,y+34);
+      ctx.font="800 54px Arial, Helvetica, sans-serif";
+      ctx.fillText(d.getDate(),x+tarjetaAncho/2,y+92);
+      ctx.font="800 20px Arial, Helvetica, sans-serif";
+      ctx.fillText(nombresMes[d.getMonth()],x+tarjetaAncho/2,y+120);
+      ctx.beginPath(); ctx.arc(x+tarjetaAncho/2,y+147,10,0,Math.PI*2); ctx.fillStyle=completo?"#fff":"#BFE8CC"; ctx.fill();
+
+      let lineY=y+190;
+      if(rs.length===0){
+        ctx.fillStyle="#BFE8CC"; roundRect(ctx,x+10,lineY-24,tarjetaAncho-20,54,8); ctx.fill();
+        ctx.fillStyle="#111"; ctx.font="800 22px Arial, Helvetica, sans-serif";
+        ctx.fillText("9 AM – 9 PM",x+tarjetaAncho/2,lineY+10);
+      }else if(completo){
+        ctx.fillStyle="#fff"; ctx.font="800 25px Arial, Helvetica, sans-serif";
+        ctx.fillText("OCUPADO",x+tarjetaAncho/2,lineY+10);
+        ctx.font="20px Arial, Helvetica, sans-serif";
+        ctx.fillText("Todo el día",x+tarjetaAncho/2,lineY+38);
+      }else{
+        segmentos.forEach(s=>{
+          const fill=s.tipo==="libre"?"#BFE8CC":"#F3B5B5";
+          const texto=`${horaTexto(minHora(s.ini))} – ${horaTexto(minHora(s.fin))}`;
+          ctx.fillStyle=fill; roundRect(ctx,x+10,lineY-27,tarjetaAncho-20,54,8); ctx.fill();
+          ctx.fillStyle="#111"; ctx.font="800 22px Arial, Helvetica, sans-serif";
+          ctx.fillText(texto,x+tarjetaAncho/2,lineY+10);
+          lineY+=62;
+        });
+      }
+
+      const barraY=y+tarjetaAlto-34;
+      ctx.fillStyle="#00b956"; roundRect(ctx,x+10,barraY,tarjetaAncho-20,16,8); ctx.fill();
+      let barraX=x+10;
+      segmentos.forEach(s=>{
+        const w=(s.fin-s.ini)/total*(tarjetaAncho-20);
+        ctx.fillStyle=s.tipo==="ocupado"?"#e51d2a":"#00b956";
+        ctx.fillRect(barraX,barraY,w,16); barraX+=w;
+      });
+    });
+
+    // Leyenda inferior, centrada como un solo bloque.
+    const ly=alto-165;
+    ctx.font="800 36px Arial, Helvetica, sans-serif";
+    const gapIconTexto=10, gapEstados=70, radio=16;
+    const anchoOcupado=ctx.measureText("OCUPADO").width;
+    const anchoDisponible=ctx.measureText("DISPONIBLE").width;
+    const anchoLeyenda=(radio*2)+gapIconTexto+anchoOcupado+gapEstados+(radio*2)+gapIconTexto+anchoDisponible;
+    let lx=(ancho-anchoLeyenda)/2;
+
+    ctx.textAlign="left";
+    ctx.beginPath(); ctx.arc(lx+radio,ly,radio,0,Math.PI*2); ctx.fillStyle="#e51d2a"; ctx.fill();
+    ctx.fillStyle="#fff"; ctx.fillText("OCUPADO",lx+radio*2+gapIconTexto,ly+12);
+
+    lx += radio*2+gapIconTexto+anchoOcupado+gapEstados;
+    ctx.beginPath(); ctx.arc(lx+radio,ly,radio,0,Math.PI*2); ctx.fillStyle="#00b956"; ctx.fill();
+    ctx.fillStyle="#fff"; ctx.fillText("DISPONIBLE",lx+radio*2+gapIconTexto,ly+12);
+
+    canvas.toBlob(png=>{
+      const enlace=document.createElement("a");
+      enlace.download="agenda-akreative.png";
+      enlace.href=URL.createObjectURL(png);
+      enlace.click();
+      setTimeout(()=>URL.revokeObjectURL(enlace.href),1000);
+    },"image/png");
+  }).catch(err=>{
+    console.error(err);
+    alert("No se pudo preparar el fondo para la exportación. Verifica que fond.png y el logo estén junto al index.html.");
+  });
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rr);
+  ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);
+  ctx.arcTo(x,y,x+w,y,rr);
+  ctx.closePath();
+}
+
+function cerrarModales(){
+  document.querySelectorAll(".modal").forEach(m=>m.classList.remove("abierto"));
+}
+
+document.querySelectorAll(".modal").forEach(modal=>{
+  modal.addEventListener("click",e=>{
+    if(e.target===modal) cerrarModales();
+  });
+});
+
+// Por defecto cada nueva reserva dura 2 horas. Si Richard cambia la hora de inicio,
+// el término se mueve automáticamente 2 horas; luego puede ampliarlo manualmente.
+document.getElementById("inicio").addEventListener("change", actualizarFinAutomatico);
+document.getElementById("todoElDia").addEventListener("change", actualizarTodoElDia);
+
+llenarHorarios();
+render();
+</script>
+</body>
+</html>
