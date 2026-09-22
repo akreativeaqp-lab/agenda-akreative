@@ -71,9 +71,9 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
 @media(max-width:600px){
  .app{padding:12px;overflow-x:hidden}.logo{height:52px}.logo img{width:min(330px,78vw)}.subtitle{font-size:14px;letter-spacing:2px}h1{font-size:24px;margin-top:14px}.periodo{font-size:13px}
  .acciones{margin:14px 0;gap:8px}.acciones button{min-height:44px;padding:12px 13px;font-size:13px;flex:1 1 150px}
- .agenda{grid-template-columns:1fr;gap:10px}
- .dia{min-height:255px;border-radius:10px}.cabecera-dia{padding-top:9px}.semana{font-size:17px}.numero{font-size:42px}.mes{font-size:16px}.estado{margin-top:10px;padding:0 12px}.punto{width:15px;height:15px}.estado-titulo{display:none}.horario{font-size:20px;line-height:1.15}.detalle{font-size:20px}.segmento-detalle{padding:8px 4px}.reserva-nombre{font-size:11px}.segmentos{height:18px;margin:11px 7px 0}
- .leyenda{gap:30px;font-size:20px}.color{width:20px;height:20px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
+ .agenda{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+ .dia{min-height:0;height:auto;border-radius:8px}.cabecera-dia{padding-top:6px}.semana{font-size:11px}.numero{font-size:27px}.mes{font-size:11px}.estado{margin-top:6px;padding:0 4px}.punto{width:9px;height:9px}.estado-titulo{display:none}.horario{font-size:10px;line-height:1.1}.detalle{font-size:10px}.segmento-detalle{padding:4px 2px}.reserva-nombre{font-size:9px}.segmentos{height:8px;margin:6px 4px 0}
+ .leyenda{gap:18px;font-size:16px}.color{width:14px;height:14px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
 }
 </style>
 </head>
@@ -87,9 +87,14 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
 </header>
 
 <div class="acciones">
+  <button class="btn-secundario" onclick="irPeriodo(-1)">‹ 15 ANTERIORES</button>
+  <button class="btn-secundario" onclick="irHoy()">📅 HOY</button>
+  <button class="btn-secundario" onclick="irPeriodo(1)">15 SIGUIENTES ›</button>
+  <button class="btn-secundario" onclick="irAFecha()">📅 IR A FECHA</button>
   <button class="btn-principal" onclick="abrirReserva()">＋ NUEVA RESERVA</button>
   <button class="btn-secundario" onclick="abrirReservas()">📋 TODAS LAS RESERVAS</button>
   <button class="btn-exportar" onclick="exportarAgenda()">📸 EXPORTAR AGENDA COMO IMAGEN</button>
+  <button class="btn-exportar" onclick="compartirAgenda()">📲 COMPARTIR POR WHATSAPP</button>
 </div>
 
 <section class="agenda" id="agenda"></section>
@@ -158,18 +163,48 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
 </div>
 
 <script>
-const DIAS = [
- "2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26",
- "2026-09-27","2026-09-28","2026-09-29","2026-09-30","2026-10-01",
- "2026-10-02","2026-10-03","2026-10-04","2026-10-05","2026-10-06"
-];
+let fechaInicio = null;
+let DIAS = [];
+
+function fechaLocalISO(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function fechaDesdeISO(iso){
+  return new Date(iso+"T12:00:00");
+}
+
+function construirDias(inicio){
+  const base = new Date(inicio+"T12:00:00");
+  DIAS = Array.from({length:15},(_,i)=>{
+    const d=new Date(base);
+    d.setDate(base.getDate()+i);
+    return fechaLocalISO(d);
+  });
+}
+
+function iniciarAgenda(){
+  const manana=new Date();
+  manana.setHours(12,0,0,0);
+  manana.setDate(manana.getDate()+1);
+  fechaInicio=fechaLocalISO(manana);
+  construirDias(fechaInicio);
+}
+
+iniciarAgenda();
 
 const nombresDia = ["DOM","LUN","MAR","MIÉ","JUE","VIE","SÁB"];
 const nombresMes = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
 
 function actualizarPeriodo(){
   const p=document.getElementById("periodo");
-  if(p) p.textContent="22 DE SEPTIEMBRE — 6 DE OCTUBRE, 2026";
+  if(!p || !DIAS.length) return;
+  const a=fechaDesdeISO(DIAS[0]);
+  const b=fechaDesdeISO(DIAS[DIAS.length-1]);
+  p.textContent=`${a.getDate()} DE ${nombresMes[a.getMonth()]} — ${b.getDate()} DE ${nombresMes[b.getMonth()]}, ${b.getFullYear()}`;
 }
 
 let reservas = JSON.parse(localStorage.getItem("akreative_reservas") || "null");
@@ -207,6 +242,36 @@ function horaTexto(hora){
 
 function reservasDia(fecha){
   return reservas.filter(r => r.fecha === fecha).sort((a,b)=>a.inicio.localeCompare(b.inicio));
+}
+
+function irPeriodo(direccion){
+  const base=fechaDesdeISO(fechaInicio);
+  base.setDate(base.getDate()+direccion*15);
+  fechaInicio=fechaLocalISO(base);
+  construirDias(fechaInicio);
+  actualizarPeriodo();
+  render();
+}
+
+function irHoy(){
+  const manana=new Date();
+  manana.setHours(12,0,0,0);
+  manana.setDate(manana.getDate()+1);
+  fechaInicio=fechaLocalISO(manana);
+  construirDias(fechaInicio);
+  actualizarPeriodo();
+  render();
+}
+
+function irAFecha(){
+  const valor=prompt("Escribe la fecha a la que quieres ir (AAAA-MM-DD). Ejemplo: 2026-10-18");
+  if(!valor) return;
+  const d=new Date(valor+"T12:00:00");
+  if(Number.isNaN(d.getTime())){ alert("Fecha no válida. Usa el formato AAAA-MM-DD."); return; }
+  fechaInicio=fechaLocalISO(d);
+  construirDias(fechaInicio);
+  actualizarPeriodo();
+  render();
 }
 
 function render(){
@@ -523,7 +588,7 @@ function exportarAgenda(){
     ctx.fillText("AGENDA DISPONIBLE",ancho/2,184);
     ctx.fillStyle="#ddd";
     ctx.font="23px Arial, Helvetica, sans-serif";
-    ctx.fillText("22 DE SEPTIEMBRE — 6 DE OCTUBRE, 2026",ancho/2,232);
+    ctx.fillText(document.getElementById("periodo")?.textContent || "",ancho/2,232);
 
     DIAS.forEach((fecha,index)=>{
       const d=new Date(fecha+"T12:00:00"), rs=reservasDia(fecha);
@@ -614,6 +679,61 @@ function exportarAgenda(){
   });
 }
 
+async function crearImagenAgendaBlob(){
+  const ancho=1080, alto=1920, margen=20, cabecera=265, gap=8;
+  const tarjetaAncho=(ancho-margen*2-gap*4)/5;
+  const tarjetaAlto=470;
+  const canvas=document.createElement("canvas");
+  canvas.width=ancho; canvas.height=alto;
+  const ctx=canvas.getContext("2d");
+  const cargarImagen=(src)=>new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=src; });
+  const [fondo,logo]=await Promise.all([cargarImagen("fond.png"),cargarImagen("AKREATIVE BLANCO.png")]);
+  ctx.fillStyle="#080808"; ctx.fillRect(0,0,ancho,alto);
+  const escala=Math.max(ancho/fondo.width,alto/fondo.height);
+  const fw=fondo.width*escala, fh=fondo.height*escala;
+  ctx.drawImage(fondo,(ancho-fw)/2,(alto-fh)/2,fw,fh);
+  ctx.fillStyle="rgba(0,0,0,.08)"; ctx.fillRect(0,0,ancho,alto);
+  const logoW=430, logoH=76; ctx.drawImage(logo,ancho/2-logoW/2,62,logoW,logoH);
+  ctx.textAlign="center"; ctx.fillStyle="#fff"; ctx.font="bold 36px Arial, Helvetica, sans-serif"; ctx.fillText("AGENDA DISPONIBLE",ancho/2,184);
+  ctx.fillStyle="#ddd"; ctx.font="23px Arial, Helvetica, sans-serif"; ctx.fillText(document.getElementById("periodo")?.textContent || "",ancho/2,232);
+  DIAS.forEach((fecha,index)=>{
+    const d=new Date(fecha+"T12:00:00"), rs=reservasDia(fecha);
+    const x=margen+(index%5)*(tarjetaAncho+gap); const y=cabecera+Math.floor(index/5)*(tarjetaAlto+gap);
+    const inicioAgenda=540, finAgenda=1260, total=720;
+    const ocupados=rs.map(r=>({ini:Math.max(minutos(r.inicio),inicioAgenda),fin:Math.min(minutos(r.fin),finAgenda)})).filter(o=>o.fin>o.ini);
+    const segmentos=[], completo=ocupados.length===1&&ocupados[0].ini===inicioAgenda&&ocupados[0].fin===finAgenda;
+    let cursor=inicioAgenda; ocupados.forEach(o=>{ if(o.ini>cursor) segmentos.push({tipo:"libre",ini:cursor,fin:o.ini}); segmentos.push({tipo:"ocupado",ini:o.ini,fin:o.fin}); cursor=Math.max(cursor,o.fin); }); if(cursor<finAgenda) segmentos.push({tipo:"libre",ini:cursor,fin:finAgenda});
+    ctx.fillStyle=completo?"#e51d2a":"#f5f5f5"; roundRect(ctx,x,y,tarjetaAncho,tarjetaAlto,18); ctx.fill();
+    const color=completo?"#fff":"#111"; ctx.fillStyle=color; ctx.textAlign="center"; ctx.font="800 22px Arial, Helvetica, sans-serif"; ctx.fillText(nombresDia[d.getDay()],x+tarjetaAncho/2,y+34);
+    ctx.font="800 54px Arial, Helvetica, sans-serif"; ctx.fillText(d.getDate(),x+tarjetaAncho/2,y+92); ctx.font="800 20px Arial, Helvetica, sans-serif"; ctx.fillText(nombresMes[d.getMonth()],x+tarjetaAncho/2,y+120);
+    ctx.beginPath(); ctx.arc(x+tarjetaAncho/2,y+147,10,0,Math.PI*2); ctx.fillStyle=completo?"#fff":"#BFE8CC"; ctx.fill();
+    let lineY=y+190;
+    if(rs.length===0){ ctx.fillStyle="#BFE8CC"; roundRect(ctx,x+10,lineY-24,tarjetaAncho-20,54,8); ctx.fill(); ctx.fillStyle="#111"; ctx.font="800 22px Arial, Helvetica, sans-serif"; ctx.fillText("9 AM – 9 PM",x+tarjetaAncho/2,lineY+10); }
+    else if(completo){ ctx.fillStyle="#fff"; ctx.font="800 25px Arial, Helvetica, sans-serif"; ctx.fillText("OCUPADO",x+tarjetaAncho/2,lineY+10); ctx.font="20px Arial, Helvetica, sans-serif"; ctx.fillText("Todo el día",x+tarjetaAncho/2,lineY+38); }
+    else { segmentos.forEach(s=>{ const fill=s.tipo==="libre"?"#BFE8CC":"#F3B5B5"; const texto=`${horaTexto(minHora(s.ini))} – ${horaTexto(minHora(s.fin))}`; ctx.fillStyle=fill; roundRect(ctx,x+10,lineY-27,tarjetaAncho-20,54,8); ctx.fill(); ctx.fillStyle="#111"; ctx.font="800 22px Arial, Helvetica, sans-serif"; ctx.fillText(texto,x+tarjetaAncho/2,lineY+10); lineY+=62; }); }
+    const barraY=y+tarjetaAlto-34; ctx.fillStyle="#00b956"; roundRect(ctx,x+10,barraY,tarjetaAncho-20,16,8); ctx.fill(); let barraX=x+10; segmentos.forEach(s=>{ const w=(s.fin-s.ini)/total*(tarjetaAncho-20); ctx.fillStyle=s.tipo==="ocupado"?"#e51d2a":"#00b956"; ctx.fillRect(barraX,barraY,w,16); barraX+=w; });
+  });
+  const ly=alto-165; ctx.font="800 36px Arial, Helvetica, sans-serif"; const gapIconTexto=10,gapEstados=70,radio=16; const anchoOcupado=ctx.measureText("OCUPADO").width, anchoDisponible=ctx.measureText("DISPONIBLE").width; const anchoLeyenda=(radio*2)+gapIconTexto+anchoOcupado+gapEstados+(radio*2)+gapIconTexto+anchoDisponible; let lx=(ancho-anchoLeyenda)/2; ctx.textAlign="left"; ctx.beginPath(); ctx.arc(lx+radio,ly,radio,0,Math.PI*2); ctx.fillStyle="#e51d2a"; ctx.fill(); ctx.fillStyle="#fff"; ctx.fillText("OCUPADO",lx+radio*2+gapIconTexto,ly+12); lx+=radio*2+gapIconTexto+anchoOcupado+gapEstados; ctx.beginPath(); ctx.arc(lx+radio,ly,radio,0,Math.PI*2); ctx.fillStyle="#00b956"; ctx.fill(); ctx.fillStyle="#fff"; ctx.fillText("DISPONIBLE",lx+radio*2+gapIconTexto,ly+12);
+  return new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
+}
+
+async function compartirAgenda(){
+  try{
+    const blob=await crearImagenAgendaBlob();
+    const archivo=new File([blob],"agenda-akreative.png",{type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[archivo]})){
+      await navigator.share({title:"Agenda AKREATIVE",text:"Disponibilidad AKREATIVE",files:[archivo]});
+    }else if(navigator.share){
+      await navigator.share({title:"Agenda AKREATIVE",text:"Disponibilidad AKREATIVE"});
+    }else{
+      const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.download="agenda-akreative.png"; a.href=url; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+      alert("Tu navegador no permite compartir la imagen directamente. Se descargó la imagen para que puedas enviarla por WhatsApp Business.");
+    }
+  }catch(err){
+    if(err && err.name!=="AbortError") { console.error(err); alert("No se pudo compartir la agenda. Puedes usar EXPORTAR AGENDA COMO IMAGEN."); }
+  }
+}
+
 function roundRect(ctx,x,y,w,h,r){
   const rr=Math.min(r,w/2,h/2);
   ctx.beginPath();
@@ -641,6 +761,7 @@ document.getElementById("inicio").addEventListener("change", actualizarFinAutoma
 document.getElementById("todoElDia").addEventListener("change", actualizarTodoElDia);
 
 llenarHorarios();
+actualizarPeriodo();
 render();
 </script>
 </body>
