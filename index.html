@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda AKREATIVE</title>
-<link rel="icon" type="image/png" href="ICONO-AGENDA-AKREATIVE.png">
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#080808 url("fond.png") center -55px/cover fixed no-repeat;color:#fff;font-family:Arial,Helvetica,sans-serif}
@@ -76,6 +75,17 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
  .dia{min-height:0;height:auto;border-radius:8px}.cabecera-dia{padding-top:6px}.semana{font-size:11px}.numero{font-size:27px}.mes{font-size:11px}.estado{margin-top:6px;padding:0 4px}.punto{width:9px;height:9px}.estado-titulo{display:none}.horario{font-size:10px;line-height:1.1}.detalle{font-size:10px}.segmento-detalle{padding:4px 2px}.reserva-nombre{font-size:9px}.segmentos{height:8px;margin:6px 4px 0}
  .leyenda{gap:18px;font-size:16px}.color{width:14px;height:14px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
 }
+
+.recordatorio-box{width:min(500px,100%);background:#111;border:1px solid #333;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.recordatorio-box h2{margin:0 0 18px;font-size:24px}
+.recordatorio-ayuda{font-size:12px;color:#aaa;margin-top:7px;line-height:1.35}
+.recordatorio-preview{background:#222;border:1px solid #444;border-radius:10px;padding:14px;margin:14px 0 16px;color:#ddd;line-height:1.5}
+.recordatorio-preview strong{display:block;color:#fff;margin-bottom:5px}
+.recordatorio-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+.reserva-horario{width:100%;font:inherit;text-align:center;cursor:pointer;border:0;display:block}
+.reserva-horario:hover{filter:brightness(.97);outline:2px solid rgba(229,29,42,.35)}
+.reserva-horario:focus{outline:3px solid #e51d2a;outline-offset:1px}
+@media(max-width:600px){.recordatorio-box{padding:16px}.recordatorio-box h2{font-size:21px}.recordatorio-actions button{flex:1}.reserva-horario{padding-left:2px;padding-right:2px}}
 </style>
 </head>
 <body>
@@ -89,10 +99,7 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
 
 <div class="acciones">
   <button class="btn-secundario" onclick="irPeriodo(-1)">‹ 15 ANTERIORES</button>
-  <button class="btn-secundario" onclick="irHoy()">📅 HOY</button>
   <button class="btn-secundario" onclick="irPeriodo(1)">15 SIGUIENTES ›</button>
-  <button class="btn-secundario" onclick="irAFecha()">📅 IR A FECHA</button>
-  <button class="btn-principal" onclick="abrirReserva()">＋ NUEVA RESERVA</button>
   <button class="btn-secundario" onclick="abrirReservas()">📋 TODAS LAS RESERVAS</button>
   <button class="btn-exportar" onclick="exportarAgenda()">📸 EXPORTAR AGENDA COMO IMAGEN</button>
   <button class="btn-exportar" onclick="compartirAgenda()">📲 COMPARTIR POR WHATSAPP</button>
@@ -163,6 +170,28 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
   </div>
 </div>
 
+
+<!-- RECORDATORIO DE SESIÓN -->
+<div class="modal" id="modalRecordatorio">
+  <div class="recordatorio-box">
+    <button class="cerrar" onclick="cerrarModales()">×</button>
+    <h2>📸 Recordatorio de sesión</h2>
+    <div class="campo full">
+      <label>Nombre para el recordatorio</label>
+      <input id="nombreRecordatorio" type="text" placeholder="Nombre correcto del artista o grupo">
+      <div class="recordatorio-ayuda">Puedes corregir el nombre aquí sin modificar la reserva original.</div>
+    </div>
+    <div class="recordatorio-preview">
+      <strong>Mensaje que aparecerá en la imagen:</strong>
+      <span id="previewRecordatorio"></span>
+    </div>
+    <div class="recordatorio-actions">
+      <button class="btn-cancelar" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn-principal" onclick="generarRecordatorio()">🖼️ GENERAR Y COMPARTIR</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let fechaInicio = null;
 let DIAS = [];
@@ -188,10 +217,9 @@ function construirDias(inicio){
 }
 
 function iniciarAgenda(){
-  const manana=new Date();
-  manana.setHours(12,0,0,0);
-  manana.setDate(manana.getDate()+1);
-  fechaInicio=fechaLocalISO(manana);
+  const hoy=new Date();
+  hoy.setHours(12,0,0,0);
+  fechaInicio=fechaLocalISO(hoy);
   construirDias(fechaInicio);
 }
 
@@ -254,27 +282,6 @@ function irPeriodo(direccion){
   render();
 }
 
-function irHoy(){
-  const manana=new Date();
-  manana.setHours(12,0,0,0);
-  manana.setDate(manana.getDate()+1);
-  fechaInicio=fechaLocalISO(manana);
-  construirDias(fechaInicio);
-  actualizarPeriodo();
-  render();
-}
-
-function irAFecha(){
-  const valor=prompt("Escribe la fecha a la que quieres ir (AAAA-MM-DD). Ejemplo: 2026-10-18");
-  if(!valor) return;
-  const d=new Date(valor+"T12:00:00");
-  if(Number.isNaN(d.getTime())){ alert("Fecha no válida. Usa el formato AAAA-MM-DD."); return; }
-  fechaInicio=fechaLocalISO(d);
-  construirDias(fechaInicio);
-  actualizarPeriodo();
-  render();
-}
-
 function render(){
   const agenda = document.getElementById("agenda");
   agenda.innerHTML = "";
@@ -291,7 +298,7 @@ function render(){
     rs.forEach(r=>{
       const ini = Math.max(minutos(r.inicio), inicioAgenda);
       const fin = Math.min(minutos(r.fin), finAgenda);
-      if(fin>ini) ocupados.push({ini,fin,nombre:r.nombre});
+      if(fin>ini) ocupados.push({ini,fin,nombre:r.nombre,id:r.id});
     });
 
     let segmentos = [];
@@ -299,7 +306,7 @@ function render(){
 
     ocupados.forEach(o=>{
       if(o.ini>cursor) segmentos.push({tipo:"libre",ini:cursor,fin:o.ini});
-      segmentos.push({tipo:"ocupado",ini:o.ini,fin:o.fin,nombre:o.nombre});
+      segmentos.push({tipo:"ocupado",ini:o.ini,fin:o.fin,nombre:o.nombre,id:o.id});
       cursor = Math.max(cursor,o.fin);
     });
     if(cursor<finAgenda) segmentos.push({tipo:"libre",ini:cursor,fin:finAgenda});
@@ -320,7 +327,7 @@ function render(){
         if(s.tipo === "libre"){
           return `<div class="horario segmento-detalle segmento-disponible">${horario}</div>`;
         }
-        return `<div class="horario segmento-detalle segmento-reservado">${horario}</div>`;
+        return `<button type="button" class="horario segmento-detalle segmento-reservado reserva-horario" data-reserva-id="${s.id}" title="Enviar recordatorio">${horario}</button>`;
       }).join("");
     }
 
@@ -341,6 +348,12 @@ function render(){
       </div>
       <div class="segmentos">${barras}</div>
     `;
+    card.querySelectorAll(".reserva-horario").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        abrirRecordatorio(Number(btn.dataset.reservaId));
+      });
+    });
     card.tabIndex = 0;
     card.setAttribute("role", "button");
     card.setAttribute("aria-label", `Gestionar reservas del ${d.getDate()} de ${nombresMes[d.getMonth()]}`);
@@ -746,9 +759,163 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.closePath();
 }
 
+
+let reservaRecordatorioId = null;
+
+function formatoFechaRecordatorio(iso){
+  const d=fechaDesdeISO(iso);
+  return `${nombresDia[d.getDay()].slice(0,3).toUpperCase()} ${String(d.getDate()).padStart(2,"0")} ${nombresMes[d.getMonth()].slice(0,3).toUpperCase()}`;
+}
+
+function abrirRecordatorio(id){
+  const r=reservas.find(x=>x.id===id);
+  if(!r) return;
+  reservaRecordatorioId=id;
+  const input=document.getElementById("nombreRecordatorio");
+  input.value=r.nombre || "";
+  actualizarVistaRecordatorio();
+  document.getElementById("modalRecordatorio").classList.add("abierto");
+  setTimeout(()=>{input.focus();input.select();},50);
+}
+
+function actualizarVistaRecordatorio(){
+  const r=reservas.find(x=>x.id===reservaRecordatorioId);
+  if(!r) return;
+  const nombre=(document.getElementById("nombreRecordatorio")?.value || r.nombre || "").trim() || "NOMBRE DEL ARTISTA";
+  document.getElementById("previewRecordatorio").innerHTML=
+    `LE RECORDAMOS SU SESIÓN DEL DÍA DE HOY<br><strong>${formatoFechaRecordatorio(r.fecha)}</strong><br>${horaTexto(r.inicio)} – ${horaTexto(r.fin)}<br>${escapeHtml(nombre)}<br><br><b>IMPORTANTE:</b> No aplicarse bloqueador solar antes de la sesión.<br><br>¡Te esperamos!`;
+}
+
+function redondearRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  ctx.beginPath();ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+h,rr);ctx.arcTo(x+w,y+h,x,y+h,rr);ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
+}
+
+function textoEnLineas(ctx,text,x,y,maxWidth,lineHeight){
+  const palabras=text.split(/\s+/); let linea=""; let yy=y;
+  for(const palabra of palabras){
+    const prueba=linea?linea+" "+palabra:palabra;
+    if(ctx.measureText(prueba).width>maxWidth && linea){ctx.fillText(linea,x,yy);yy+=lineHeight;linea=palabra;}else linea=prueba;
+  }
+  if(linea)ctx.fillText(linea,x,yy);
+  return yy;
+}
+
+async function crearImagenRecordatorio(r,nombre){
+  const canvas=document.createElement("canvas");
+  canvas.width=1080; canvas.height=1350;
+  const ctx=canvas.getContext("2d");
+  const cargarImagen=src=>new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=reject;
+    img.src=src;
+  });
+  const [fondo,logo]=await Promise.all([
+    cargarImagen("fond.png"),
+    cargarImagen("AKREATIVE BLANCO.png")
+  ]);
+
+  // Fondo oscuro AKREATIVE
+  ctx.fillStyle="#080808";
+  ctx.fillRect(0,0,1080,1350);
+  const escala=Math.max(1080/fondo.width,1350/fondo.height);
+  const fw=fondo.width*escala, fh=fondo.height*escala;
+  ctx.drawImage(fondo,(1080-fw)/2,(1350-fh)/2,fw,fh);
+  ctx.fillStyle="rgba(0,0,0,.28)";
+  ctx.fillRect(0,0,1080,1350);
+
+  // Logo y título
+  const logoW=500,logoH=90;
+  ctx.drawImage(logo,540-logoW/2,55,logoW,logoH);
+  ctx.textAlign="center";
+  ctx.fillStyle="#fff";
+  ctx.font="700 36px Arial, Helvetica, sans-serif";
+  ctx.fillText("RECORDATORIO DE SESIÓN",540,205);
+
+  // Tarjeta blanca
+  const bx=70,by=260,bw=940,bh=820;
+  ctx.fillStyle="#f5f5f5";
+  redondearRect(ctx,bx,by,bw,bh,28);
+  ctx.fill();
+
+  // Todo el contenido de la tarjeta en negro.
+  ctx.fillStyle="#111";
+  let y=by+75;
+
+  // Mensaje superior: una sola línea
+  ctx.font="400 31px Arial, Helvetica, sans-serif";
+  ctx.fillText("LE RECORDAMOS SU SESIÓN DEL DÍA DE HOY",540,y);
+
+  // Fecha: protagonista
+  ctx.font="800 74px Arial, Helvetica, sans-serif";
+  y+=105;
+  ctx.fillText(formatoFechaRecordatorio(r.fecha),540,y);
+
+  // Horario
+  ctx.font="500 58px Arial, Helvetica, sans-serif";
+  y+=92;
+  ctx.fillText(`${horaTexto(r.inicio)} – ${horaTexto(r.fin)}`,540,y);
+
+  // Nombre editable
+  ctx.font="600 48px Arial, Helvetica, sans-serif";
+  y+=92;
+  y=textoEnLineas(ctx,nombre,540,y,800,58);
+
+  // Separador
+  ctx.strokeStyle="#cfcfcf";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(150,y+42);
+  ctx.lineTo(930,y+42);
+  ctx.stroke();
+
+  // Aviso importante
+  y+=98;
+  ctx.font="700 27px Arial, Helvetica, sans-serif";
+  ctx.fillText("IMPORTANTE:",540,y);
+  y+=38;
+  ctx.font="400 27px Arial, Helvetica, sans-serif";
+  y=textoEnLineas(ctx,"No aplicarse bloqueador solar antes de la sesión.",540,y,780,38);
+
+  // Cierre
+  ctx.font="500 31px Arial, Helvetica, sans-serif";
+  ctx.fillText("¡Te esperamos!",540,by+bh-55);
+
+  return new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
+}
+
+
+async function generarRecordatorio(){
+  const r=reservas.find(x=>x.id===reservaRecordatorioId);if(!r)return;
+  const nombre=document.getElementById("nombreRecordatorio").value.trim();
+  if(!nombre){alert("Escribe el nombre que quieres mostrar en el recordatorio.");return;}
+  const boton=document.querySelector("#modalRecordatorio .btn-principal");
+  const original=boton.textContent;boton.disabled=true;boton.textContent="Generando…";
+  try{
+    const blob=await crearImagenRecordatorio(r,nombre);
+    const archivo=new File([blob],`recordatorio-akreative-${r.fecha}-${r.inicio.replace(":","")}.png`,{type:"image/png"});
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[archivo]}))){
+      await navigator.share({title:"Recordatorio AKREATIVE",files:[archivo]});
+    }else{
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=archivo.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+      alert("La imagen se descargó. En el celular podrás compartirla por WhatsApp desde el menú de compartir.");
+    }
+  }catch(err){
+    if(err && err.name!=="AbortError"){
+      console.error(err);
+      alert("No se pudo compartir automáticamente. La imagen se descargará.");
+      try{const blob=await crearImagenRecordatorio(r,nombre);const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`recordatorio-akreative-${r.fecha}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){console.error(e);}
+    }
+  }finally{boton.disabled=false;boton.textContent=original;}
+}
+
+document.getElementById("nombreRecordatorio").addEventListener("input",actualizarVistaRecordatorio);
+
 function cerrarModales(){
   document.querySelectorAll(".modal").forEach(m=>m.classList.remove("abierto"));
 }
+
 
 document.querySelectorAll(".modal").forEach(modal=>{
   modal.addEventListener("click",e=>{
