@@ -219,7 +219,22 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
         <label>Hasta</label>
         <select id="fin"></select>
       </div>
-       <div class="campo full" style="margin-top:2px;">
+       <div class="campo">
+  <label>Precio de la sesión</label>
+  <input id="precio" type="number" min="0" step="1" value="280" placeholder="280" oninput="actualizarSaldo()">
+</div>
+
+<div class="campo">
+  <label>Adelanto</label>
+  <input id="adelanto" type="number" min="0" step="1" value="0" placeholder="0" oninput="actualizarSaldo()">
+</div>
+
+<div class="campo full">
+  <label>Saldo pendiente</label>
+  <input id="saldo" type="text" value="S/ 280" readonly
+    style="background:#222;color:#fff;font-weight:800;border-color:#555;">
+</div>
+     <div class="campo full" style="margin-top:2px;">
          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
            <input id="todoElDia" type="checkbox" style="width:20px;height:20px;accent-color:#e51d2a;">
            <span>TODO EL DÍA (9 AM – 9 PM)</span>
@@ -547,6 +562,9 @@ function editarReserva(id, fecha=fechaSeleccionada){
   document.getElementById("todoElDia").checked = esTodoElDia;
   actualizarTodoElDia();
   if(reserva && !esTodoElDia) document.getElementById("fin").value = reserva.fin;
+ document.getElementById("precio").value = reserva ? (reserva.precio ?? 280) : 280;
+document.getElementById("adelanto").value = reserva ? (reserva.adelanto ?? 0) : 0;
+actualizarSaldo();
   cerrarModales();
   document.getElementById("modalReserva").classList.add("abierto");
   document.getElementById("nombre").focus();
@@ -567,28 +585,44 @@ function abrirReservaAnterior(){
   document.getElementById("fecha").value = DIAS[0];
   document.getElementById("inicio").value="09:00";
   actualizarFinAutomatico();
+ actualizarSaldo();
   document.getElementById("nombre").focus();
 }
+function actualizarSaldo(){
+  const precio = Number(document.getElementById("precio").value) || 0;
+  const adelanto = Number(document.getElementById("adelanto").value) || 0;
+  const saldo = Math.max(0, precio - adelanto);
 
+  document.getElementById("saldo").value = `S/ ${saldo}`;
+}
 function guardarReserva(){
   const nombre=document.getElementById("nombre").value.trim();
   const fecha=document.getElementById("fecha").value;
   const todoElDia=document.getElementById("todoElDia").checked;
   const inicio=todoElDia ? "09:00" : document.getElementById("inicio").value;
   const fin=todoElDia ? "21:00" : document.getElementById("fin").value;
+ const precio=Number(document.getElementById("precio").value) || 0;
+const adelanto=Number(document.getElementById("adelanto").value) || 0;
 
-  if(!nombre || !fecha || !inicio || !fin){
-    alert("Completa todos los campos.");
-    return;
-  }
-  if(minutos(fin)<=minutos(inicio)){
-    alert("La hora de término debe ser posterior a la hora de inicio.");
-    return;
-  }
-  if(minutos(inicio)<9*60 || minutos(fin)>21*60){
-    alert("La agenda funciona de 9:00 a.m. a 9:00 p.m.");
-    return;
-  }
+ if(!nombre || !fecha || !inicio || !fin){
+  alert("Completa todos los campos.");
+  return;
+}
+
+if(adelanto > precio){
+  alert("El adelanto no puede ser mayor que el precio de la sesión.");
+  return;
+}
+
+if(minutos(fin)<=minutos(inicio)){
+  alert("La hora de término debe ser posterior a la hora de inicio.");
+  return;
+}
+
+if(minutos(inicio)<9*60 || minutos(fin)>21*60){
+  alert("La agenda funciona de 9:00 a.m. a 9:00 p.m.");
+  return;
+}
 
   // Evitar reservas que se crucen con otra ya existente.
   const conflicto=reservas.find(r=>r.id!==editingReservaId &&
@@ -603,11 +637,26 @@ function guardarReserva(){
   }
 
   if(editingReservaId === null){
-    reservas.push({id:Date.now(),nombre,fecha,inicio,fin});
-  }else{
-    const reserva = reservas.find(r=>r.id===editingReservaId);
-    if(reserva) Object.assign(reserva,{nombre,fecha,inicio,fin});
-  }
+  reservas.push({
+    id:Date.now(),
+    nombre,
+    fecha,
+    inicio,
+    fin,
+    precio,
+    adelanto
+  });
+}else{
+  const reserva = reservas.find(r=>r.id===editingReservaId);
+  if(reserva) Object.assign(reserva,{
+    nombre,
+    fecha,
+    inicio,
+    fin,
+    precio,
+    adelanto
+  });
+}
   guardarDatos();
   const fechaParaAbrir = fecha;
   editingReservaId = null;
@@ -853,10 +902,26 @@ function abrirRecordatorio(id){
 function actualizarVistaRecordatorio(){
   const r=reservas.find(x=>x.id===reservaRecordatorioId);
   if(!r) return;
+
   const nombre=(document.getElementById("nombreRecordatorio")?.value || r.nombre || "").trim() || "NOMBRE DEL ARTISTA";
-  document.getElementById("previewRecordatorio").innerHTML=
-    `LE RECORDAMOS SU SESIÓN DEL DÍA DE HOY<br><strong>${formatoFechaRecordatorio(r.fecha)}</strong><br>${horaTexto(r.inicio)} – ${horaTexto(r.fin)}<br>${escapeHtml(nombre)}<br><br><b>IMPORTANTE:</b> No aplicarse bloqueador solar antes de la sesión.<br><br>¡Te esperamos!`;
+
+  const precio=Number(r.precio) || 0;
+  const adelanto=Number(r.adelanto) || 0;
+  const saldo=Math.max(0, precio - adelanto);
+
+  const estadoPago = saldo > 0
+    ? `💰 <b>SALDO PENDIENTE: S/ ${saldo}</b><br><i>El saldo deberá ser cancelado al término de la sesión.</i>`
+    : `💰 <b>SESIÓN CANCELADA EN SU TOTALIDAD</b>`;
+
+  document.getElementById("previewRecordatorio").innerHTML =
+    `LE RECORDAMOS SU SESIÓN DEL DÍA <b>${formatoFechaRecordatorio(r.fecha)}</b><br>
+    ${horaTexto(r.inicio)} - ${horaTexto(r.fin)}<br><br>
+    ${escapeHtml(nombre)}<br><br>
+    ${estadoPago}<br><br>
+    <b>IMPORTANTE:</b> No aplicarse bloqueador solar antes de la sesión.<br><br>
+    ¡Te esperamos!`;
 }
+  
 
 function redondearRect(ctx,x,y,w,h,r){
   const rr=Math.min(r,w/2,h/2);
