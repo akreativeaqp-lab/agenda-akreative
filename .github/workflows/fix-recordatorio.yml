@@ -1,0 +1,83 @@
+name: Fix recordatorio AKREATIVE
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ github.event.head_commit.message != 'Fix recordatorio: saldo y cancelación' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update reminder code
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''  const estadoPago = saldo > 0
+    ? `💰 <b>SALDO PENDIENTE: S/ ${saldo}</b><br><i>El saldo deberá ser cancelado al término de la sesión.</i>`
+    : `💰 <b>SESIÓN CANCELADA EN SU TOTALIDAD</b>`;'''
+          new = '''  const estadoPago = saldo > 0
+    ? `💰 <b>SALDO PENDIENTE: S/ ${saldo}</b><br><i>El saldo deberá ser cancelado al término de la sesión.</i>`
+    : `<b>SESIÓN CANCELADA</b>`;'''
+          if old not in s:
+              raise SystemExit('No se encontró el bloque de estado del recordatorio.')
+          s = s.replace(old, new, 1)
+
+          old_image = '''  // Separador
+  ctx.strokeStyle="#cfcfcf";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(150,y+42);
+  ctx.lineTo(930,y+42);
+  ctx.stroke();
+
+  // Aviso importante
+  y+=98;'''
+          new_image = '''  // Estado de pago / cancelación
+  const precio=Number(r.precio) || 0;
+  const adelanto=Number(r.adelanto) || 0;
+  const saldo=Math.max(0, precio - adelanto);
+
+  y+=75;
+  ctx.font="700 30px Arial, Helvetica, sans-serif";
+  if(saldo > 0){
+    ctx.fillText(`SALDO PENDIENTE: S/ ${saldo}`,540,y);
+    y+=38;
+    ctx.font="400 24px Arial, Helvetica, sans-serif";
+    y=textoEnLineas(ctx,"El saldo deberá ser cancelado al término de la sesión.",540,y,780,32);
+  }else{
+    ctx.fillText("SESIÓN CANCELADA",540,y);
+  }
+
+  // Separador
+  ctx.strokeStyle="#cfcfcf";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(150,y+42);
+  ctx.lineTo(930,y+42);
+  ctx.stroke();
+
+  // Aviso importante
+  y+=98;'''
+          if old_image not in s:
+              raise SystemExit('No se encontró el bloque de imagen del recordatorio.')
+          s = s.replace(old_image, new_image, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-recordatorio.yml
+          git add index.html .github/workflows/fix-recordatorio.yml
+          git diff --cached --quiet && exit 0 || true
+          git commit -m "Fix recordatorio: saldo y cancelación"
+          git push
