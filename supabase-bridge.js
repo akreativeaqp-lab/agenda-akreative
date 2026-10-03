@@ -6,6 +6,7 @@
 
   let syncing = false;
   let savingToRemote = false;
+  let writingSyncSnapshot = false;
 
   function headers(extra={}){
     return Object.assign({
@@ -18,28 +19,11 @@
   function leerReservasLocales(){
     try{
       return window.eval("Array.isArray(reservas) ? reservas : []");
-    }catch(e){
-      return [];
-    }
+    }catch(e){ return []; }
   }
 
-  function escribirReservasLocales(rows){
-    try{
-      window.eval("reservas = " + JSON.stringify(rows) + ";");
-      return true;
-    }catch(e){
-      console.error("AKREATIVE: no se pudo actualizar reservas locales", e);
-      return false;
-    }
-  }
+  function normalizarHora(hora){ return String(hora || "").slice(0,5); }
 
-  // Supabase devuelve TIME como HH:MM:SS y la agenda usa HH:MM.
-  function normalizarHora(hora){
-    return String(hora || "").slice(0,5);
-  }
-
-  // Identificador lógico de una reserva. Sirve para reconocer la misma reserva
-  // aunque venga de Supabase o del almacenamiento local.
   function key(r){
     return [
       r.nombre || r.cliente || "",
@@ -74,8 +58,7 @@
 
   async function getRemote(){
     const res = await fetch(`${API}?select=id,created_at,cliente,fecha,hora_inicio,hora_fin,tipo,estado&order=fecha.asc,hora_inicio.asc`, {
-      headers: headers(),
-      cache: "no-store"
+      headers: headers(), cache:"no-store"
     });
     if(!res.ok) throw new Error(`Supabase SELECT ${res.status}: ${await res.text()}`);
     return await res.json();
@@ -84,20 +67,30 @@
   async function insertRows(rows){
     if(!rows.length) return [];
     const res = await fetch(API, {
-      method: "POST",
-      headers: headers({"Prefer":"return=representation"}),
-      body: JSON.stringify(rows),
-      cache: "no-store"
+      method:"POST",
+      headers:headers({"Prefer":"return=representation"}),
+      body:JSON.stringify(rows), cache:"no-store"
     });
     if(!res.ok) throw new Error(`Supabase INSERT ${res.status}: ${await res.text()}`);
     return await res.json();
   }
 
-  function mostrarEstado(ok, texto){
+  async function deleteRemoteIds(ids){
+    const unique=[...new Set(ids.map(Number).filter(Number.isFinite))];
+    for(const id of unique){
+      const res=await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
+        method:"DELETE",
+        headers:headers({"Prefer":"return=minimal"}),
+        cache:"no-store"
+      });
+      if(!res.ok) throw new Error(`Supabase DELETE ${res.status}: ${await res.text()}`);
+    }
+  }
+
+  function mostrarEstado(ok,texto){
     let el=document.getElementById("supabaseEstado");
     if(!el){
-      el=document.createElement("div");
-      el.id="supabaseEstado";
+      el=document.createElement("div"); el.id="supabaseEstado";
       el.style.cssText="position:fixed;right:10px;bottom:10px;z-index:9999;padding:7px 11px;border-radius:999px;font:700 11px Arial,sans-serif;background:#111;color:#fff;border:1px solid #333;box-shadow:0 4px 18px rgba(0,0,0,.35);opacity:.9;";
       document.body.appendChild(el);
     }
@@ -106,20 +99,52 @@
     el.style.borderColor=ok?"#00b956":"#e51d2a";
   }
 
-  // SINCRONIZACIÓN: solo descarga desde Supabase.
-  // Ya no recorre todas las reservas locales para volver a insertarlas cada 30 s.
-  // Esto elimina la fuente de las copias repetidas que vimos en la tabla.
+  // Detecta eliminaciones hechas por la propia agenda.
+  // Si una reserva con un ID de Supabase desaparece del almacenamiento local,
+  // se elimina también en Supabase. Las escrituras hechas por nuestra propia
+  // sincronización quedan marcadas para no provocar borrados accidentales.
+  function instalarDetectorDeBorrado(){
+    const originalSetItem=Storage.prototype.setItem;
+    if(originalSetItem.__akDeleteHook) return;
+
+    function wrappedSetItem(storage,keyName,value){
+      let anterior=[];
+      let nuevo=[];
+      if(keyName === "akreative_reservas" && !writingSyncSnapshot){
+        try{ anterior=JSON.parse(storage.getItem(keyName)||"[]"); }catch(e){ anterior=[]; }
+        try{ nuevo=JSON.parse(value||"[]"); }catch(e){ nuevo=[]; }
+      }
+
+      originalSetItem.call(this,keyName,value);
+
+      if(keyName === "akreative_reservas" && !writingSyncSnapshot){
+        const ahoraIds=new Set(nuevo.map(r=>Number(r.id)).filter(Number.isFinite));
+        const borrados=anterior
+          .filter(r=>Number.isFinite(Number(r.id)) && !ahoraIds.has(Number(r.id)))
+          .map(r=>Number(r.id));
+
+        if(borrados.length){
+          deleteRemoteIds(borrados)
+            .then(()=>mostrarEstado(true,"☁️ Reserva eliminada en Supabase"))
+            .catch(err=>{
+              console.error("AKREATIVE Supabase DELETE:",err);
+              mostrarEstado(false,"⚠️ No se pudo eliminar en Supabase");
+            });
+        }
+      }
+    }
+
+    wrappedSetItem.__akDeleteHook=true;
+    Storage.prototype.setItem=wrappedSetItem;
+  }
+
   async function sincronizar(){
     if(syncing) return;
     syncing=true;
     try{
       const locales=leerReservasLocales().slice();
       const remotos=await getRemote();
-
-      const mapaPagos=new Map(locales.map(r=>[
-        key(r),
-        {precio:r.precio??280,adelanto:r.adelanto??0}
-      ]));
+      const mapaPagos=new Map(locales.map(r=>[key(r),{precio:r.precio??280,adelanto:r.adelanto??0}]));
 
       const nuevasLocales=remotos.map(r=>{
         const local=remoteToLocal(r);
@@ -127,33 +152,31 @@
         return pago ? Object.assign(local,pago) : local;
       });
 
-      // Evitamos que una misma reserva aparezca varias veces en la agenda local
-      // aunque todavía existan copias antiguas en Supabase.
       const unicas=[];
       const vistas=new Set();
       for(const r of nuevasLocales){
         const k=key(r);
         if(vistas.has(k)) continue;
-        vistas.add(k);
-        unicas.push(r);
+        vistas.add(k); unicas.push(r);
       }
 
-      escribirReservasLocales(unicas);
-      window.reservas=unicas;
+      writingSyncSnapshot=true;
+      try{
+        window.eval("reservas = " + JSON.stringify(unicas) + ";");
+        window.reservas=unicas;
+        localStorage.setItem("akreative_reservas",JSON.stringify(unicas));
+      }finally{
+        writingSyncSnapshot=false;
+      }
+
       if(typeof window.render==="function") window.render();
-      localStorage.setItem("akreative_reservas", JSON.stringify(unicas));
       mostrarEstado(true,`☁️ Supabase conectado · ${unicas.length}`);
-      console.log("AKREATIVE: Supabase conectado. Reservas únicas visibles:", unicas.length);
     }catch(err){
       console.error("AKREATIVE Supabase:",err);
       mostrarEstado(false,"⚠️ Supabase sin conexión");
-    }finally{
-      syncing=false;
-    }
+    }finally{ syncing=false; }
   }
 
-  // Guarda SOLO las reservas que realmente aparecieron nuevas en el dispositivo.
-  // Ya no intenta subir toda la agenda local en cada sincronización.
   async function guardarNuevas(nuevas){
     if(!nuevas.length || savingToRemote) return;
     savingToRemote=true;
@@ -161,7 +184,6 @@
       const remotos=await getRemote();
       const existentes=new Set(remotos.map(key));
       const faltantes=[];
-
       for(const r of nuevas){
         if(!r.fecha || !r.inicio || !r.fin) continue;
         const k=key(r);
@@ -169,18 +191,12 @@
         faltantes.push(localToRemote(r));
         existentes.add(k);
       }
-
-      if(faltantes.length){
-        await insertRows(faltantes);
-      }
-
+      if(faltantes.length) await insertRows(faltantes);
       await sincronizar();
     }catch(err){
       console.error("AKREATIVE Supabase guardado:",err);
       mostrarEstado(false,"⚠️ No se pudo guardar en Supabase");
-    }finally{
-      savingToRemote=false;
-    }
+    }finally{ savingToRemote=false; }
   }
 
   function envolverGuardar(){
@@ -189,39 +205,26 @@
     if(original.__akSupabaseWrapped) return true;
 
     const wrapped=function(){
-      // Tomamos una foto de las reservas antes de guardar.
       const antes=new Set(leerReservasLocales().map(key));
-
       original.apply(this,arguments);
-
-      // Esperamos a que la función original termine de actualizar reservas.
       setTimeout(()=>{
         const despues=leerReservasLocales();
-        const nuevas=despues.filter(r=>{
-          if(!r.fecha || !r.inicio || !r.fin) return false;
-          return !antes.has(key(r));
-        });
+        const nuevas=despues.filter(r=>r.fecha&&r.inicio&&r.fin&&!antes.has(key(r)));
         if(nuevas.length) guardarNuevas(nuevas);
       },200);
     };
-
     wrapped.__akSupabaseWrapped=true;
     window.guardarReserva=wrapped;
     return true;
   }
 
   function iniciar(){
+    instalarDetectorDeBorrado();
     envolverGuardar();
     sincronizar();
-
-    // Solo sincroniza lectura cada 30 segundos. También intenta envolver
-    // guardarReserva por si la agenda principal la define después de este script.
-    setInterval(()=>{
-      envolverGuardar();
-      sincronizar();
-    },30000);
+    setInterval(()=>{ envolverGuardar(); sincronizar(); },30000);
   }
 
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", iniciar);
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",iniciar);
   else iniciar();
 })();
