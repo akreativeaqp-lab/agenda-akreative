@@ -5,6 +5,7 @@
   const API = `${SUPABASE_URL}/rest/v1/${TABLE}`;
 
   let syncing = false;
+  let savingToRemote = false;
 
   function headers(extra={}){
     return Object.assign({
@@ -14,9 +15,6 @@
     }, extra);
   }
 
-  // index.html uses a top-level `let reservas`, which is a global lexical
-  // variable but is not exposed as window.reservas. Use global eval only to
-  // read/write that existing variable without changing the original index.
   function leerReservasLocales(){
     try{
       return window.eval("Array.isArray(reservas) ? reservas : []");
@@ -135,11 +133,22 @@
   }
 
   async function sincronizarNuevas(){
+    if(savingToRemote) return;
+    savingToRemote=true;
     try{
       const remotos=await getRemote();
       const existentes=new Set(remotos.map(key));
       const locales=leerReservasLocales();
-      const faltantes=locales.filter(r=>r.fecha&&r.inicio&&r.fin&&!existentes.has(key(r))).map(localToRemote);
+      const faltantes=[];
+
+      for(const r of locales){
+        if(!r.fecha || !r.inicio || !r.fin) continue;
+        if(!existentes.has(key(r))){
+          faltantes.push(localToRemote(r));
+          existentes.add(key(r));
+        }
+      }
+
       if(faltantes.length){
         await insertRows(faltantes);
         await sincronizar();
@@ -147,16 +156,22 @@
     }catch(err){
       console.error("AKREATIVE Supabase guardado:",err);
       mostrarEstado(false,"⚠️ No se pudo guardar en Supabase");
+    }finally{
+      savingToRemote=false;
     }
   }
 
   function envolverGuardar(){
     if(typeof window.guardarReserva!=="function") return;
     const original=window.guardarReserva;
-    window.guardarReserva=function(){
+    if(original.__akSupabaseWrapped) return;
+
+    const wrapped=function(){
       original.apply(this,arguments);
-      setTimeout(sincronizarNuevas,50);
+      setTimeout(sincronizarNuevas,150);
     };
+    wrapped.__akSupabaseWrapped=true;
+    window.guardarReserva=wrapped;
   }
 
   function iniciar(){
