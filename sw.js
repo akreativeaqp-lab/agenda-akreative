@@ -1,4 +1,4 @@
-const CACHE_NAME = "agenda-akreative-v7";
+const CACHE_NAME = "agenda-akreative-v8";
 
 const FILES_TO_CACHE = [
   "./",
@@ -40,7 +40,7 @@ self.addEventListener("fetch", event => {
         const html = await response.text();
         const inyectado = html.replace(
           /<\/body>/i,
-          '<script src="./supabase-fix.js?v=7"></script><script src="./supabase-bridge.js?v=7"></script></body>'
+          '<script src="./supabase-fix.js?v=8"></script><script src="./supabase-bridge.js?v=8"></script></body>'
         );
 
         const headers = new Headers(response.headers);
@@ -61,7 +61,7 @@ self.addEventListener("fetch", event => {
         const html = await cached.text();
         const inyectado = html.replace(
           /<\/body>/i,
-          '<script src="./supabase-fix.js?v=7"></script><script src="./supabase-bridge.js?v=7"></script></body>'
+          '<script src="./supabase-fix.js?v=8"></script><script src="./supabase-bridge.js?v=8"></script></body>'
         );
         return new Response(inyectado, {
           status: 200,
