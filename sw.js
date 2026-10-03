@@ -1,4 +1,4 @@
-const CACHE_NAME = "agenda-akreative-v6";
+const CACHE_NAME = "agenda-akreative-v7";
 
 const FILES_TO_CACHE = [
   "./",
@@ -7,7 +7,8 @@ const FILES_TO_CACHE = [
   "./ICONO-AGENDA-AKREATIVE.png",
   "./fond.png",
   "./AKREATIVE BLANCO.png",
-  "./supabase-bridge.js"
+  "./supabase-bridge.js",
+  "./supabase-fix.js"
 ];
 
 self.addEventListener("install", event => {
@@ -39,7 +40,7 @@ self.addEventListener("fetch", event => {
         const html = await response.text();
         const inyectado = html.replace(
           /<\/body>/i,
-          '<script src="./supabase-bridge.js?v=6"></script></body>'
+          '<script src="./supabase-fix.js?v=7"></script><script src="./supabase-bridge.js?v=7"></script></body>'
         );
 
         const headers = new Headers(response.headers);
@@ -60,7 +61,7 @@ self.addEventListener("fetch", event => {
         const html = await cached.text();
         const inyectado = html.replace(
           /<\/body>/i,
-          '<script src="./supabase-bridge.js?v=6"></script></body>'
+          '<script src="./supabase-fix.js?v=7"></script><script src="./supabase-bridge.js?v=7"></script></body>'
         );
         return new Response(inyectado, {
           status: 200,
