@@ -14,6 +14,27 @@
     }, extra);
   }
 
+  // index.html uses a top-level `let reservas`, which is a global lexical
+  // variable but is not exposed as window.reservas. Use global eval only to
+  // read/write that existing variable without changing the original index.
+  function leerReservasLocales(){
+    try{
+      return window.eval("Array.isArray(reservas) ? reservas : []");
+    }catch(e){
+      return [];
+    }
+  }
+
+  function escribirReservasLocales(rows){
+    try{
+      window.eval("reservas = " + JSON.stringify(rows) + ";");
+      return true;
+    }catch(e){
+      console.error("AKREATIVE: no se pudo actualizar reservas locales", e);
+      return false;
+    }
+  }
+
   function key(r){
     return [r.nombre || r.cliente || "", r.fecha || "", r.inicio || r.hora_inicio || "", r.fin || r.hora_fin || ""].join("|").toLowerCase();
   }
@@ -42,7 +63,7 @@
   }
 
   async function getRemote(){
-    const res = await fetch(`${API}?select=id,created_at,cliente,fecha,hora_inicio,hora_fin,tipo,estado&order=fecha.asc,hora_inicio.asc`, {headers: headers()});
+    const res = await fetch(`${API}?select=id,created_at,cliente,fecha,hora_inicio,hora_fin,tipo,estado&order=fecha.asc,hora_inicio.asc`, {headers: headers(), cache:"no-store"});
     if(!res.ok) throw new Error(`Supabase SELECT ${res.status}: ${await res.text()}`);
     return await res.json();
   }
@@ -52,7 +73,8 @@
     const res = await fetch(API, {
       method:"POST",
       headers: headers({"Prefer":"return=representation"}),
-      body: JSON.stringify(rows)
+      body: JSON.stringify(rows),
+      cache:"no-store"
     });
     if(!res.ok) throw new Error(`Supabase INSERT ${res.status}: ${await res.text()}`);
     return await res.json();
@@ -75,7 +97,7 @@
     if(syncing) return;
     syncing=true;
     try{
-      const locales=Array.isArray(window.reservas)?window.reservas.slice():[];
+      const locales=leerReservasLocales().slice();
       let remotos=await getRemote();
       const existentes=new Set(remotos.map(key));
       const faltantes=[];
@@ -92,15 +114,18 @@
       remotos=await getRemote();
 
       const mapaPagos=new Map(locales.map(r=>[key(r),{precio:r.precio??280,adelanto:r.adelanto??0}]));
-      window.reservas=remotos.map(r=>{
+      const nuevasLocales=remotos.map(r=>{
         const local=remoteToLocal(r);
         const pago=mapaPagos.get(key(local));
         return pago ? Object.assign(local,pago) : local;
       });
+
+      escribirReservasLocales(nuevasLocales);
+      window.reservas=nuevasLocales;
       if(typeof window.render==="function") window.render();
-      localStorage.setItem("akreative_reservas", JSON.stringify(window.reservas));
-      mostrarEstado(true,"☁️ Supabase conectado");
-      console.log("AKREATIVE: Supabase conectado. Reservas:", window.reservas.length);
+      localStorage.setItem("akreative_reservas", JSON.stringify(nuevasLocales));
+      mostrarEstado(true,`☁️ Supabase conectado · ${nuevasLocales.length}`);
+      console.log("AKREATIVE: Supabase conectado. Reservas:", nuevasLocales.length);
     }catch(err){
       console.error("AKREATIVE Supabase:",err);
       mostrarEstado(false,"⚠️ Supabase sin conexión");
@@ -113,7 +138,7 @@
     try{
       const remotos=await getRemote();
       const existentes=new Set(remotos.map(key));
-      const locales=Array.isArray(window.reservas)?window.reservas:[];
+      const locales=leerReservasLocales();
       const faltantes=locales.filter(r=>r.fecha&&r.inicio&&r.fin&&!existentes.has(key(r))).map(localToRemote);
       if(faltantes.length){
         await insertRows(faltantes);
