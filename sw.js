@@ -33,14 +33,12 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const req = event.request;
 
-  // Para la página principal, obtenemos la versión actual y le inyectamos
-  // el puente de Supabase. Si no hay red, usamos la copia guardada.
   if(req.mode === "navigate"){
     event.respondWith(
       fetch(req).then(async response => {
         const html = await response.text();
         const inyectado = html.replace(
-          /<\\/body>/i,
+          /<\/body>/i,
           '<script src="./supabase-bridge.js"></script></body>'
         );
         return new Response(inyectado, {
@@ -53,7 +51,7 @@ self.addEventListener("fetch", event => {
         if(!cached) return fetch(req);
         const html = await cached.text();
         const inyectado = html.replace(
-          /<\\/body>/i,
+          /<\/body>/i,
           '<script src="./supabase-bridge.js"></script></body>'
         );
         return new Response(inyectado, {
