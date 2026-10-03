@@ -911,7 +911,7 @@ function actualizarVistaRecordatorio(){
 
   const estadoPago = saldo > 0
     ? `💰 <b>SALDO PENDIENTE: S/ ${saldo}</b><br><i>El saldo deberá ser cancelado al término de la sesión.</i>`
-    : `💰 <b>SESIÓN CANCELADA EN SU TOTALIDAD</b>`;
+    : `<b>SESIÓN CANCELADA</b>`;
 
   document.getElementById("previewRecordatorio").innerHTML =
     `LE RECORDAMOS SU SESIÓN DEL DÍA <b>${formatoFechaRecordatorio(r.fecha)}</b><br>
@@ -998,6 +998,22 @@ async function crearImagenRecordatorio(r,nombre){
   ctx.font="600 48px Arial, Helvetica, sans-serif";
   y+=92;
   y=textoEnLineas(ctx,nombre,540,y,800,58);
+
+  // Estado de pago / cancelación
+  const precio=Number(r.precio) || 0;
+  const adelanto=Number(r.adelanto) || 0;
+  const saldo=Math.max(0, precio - adelanto);
+
+  y+=75;
+  ctx.font="700 30px Arial, Helvetica, sans-serif";
+  if(saldo > 0){
+    ctx.fillText(`SALDO PENDIENTE: S/ ${saldo}`,540,y);
+    y+=38;
+    ctx.font="400 24px Arial, Helvetica, sans-serif";
+    y=textoEnLineas(ctx,"El saldo deberá ser cancelado al término de la sesión.",540,y,780,32);
+  }else{
+    ctx.fillText("SESIÓN CANCELADA",540,y);
+  }
 
   // Separador
   ctx.strokeStyle="#cfcfcf";
