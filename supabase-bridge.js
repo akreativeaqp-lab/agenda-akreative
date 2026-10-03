@@ -33,8 +33,19 @@
     }
   }
 
+  // IMPORTANTE: Supabase devuelve TIME como HH:MM:SS y la agenda local usa HH:MM.
+  // Normalizamos ambos formatos para que una misma reserva nunca se considere nueva.
+  function normalizarHora(hora){
+    return String(hora || "").slice(0,5);
+  }
+
   function key(r){
-    return [r.nombre || r.cliente || "", r.fecha || "", r.inicio || r.hora_inicio || "", r.fin || r.hora_fin || ""].join("|").toLowerCase();
+    return [
+      r.nombre || r.cliente || "",
+      r.fecha || "",
+      normalizarHora(r.inicio || r.hora_inicio),
+      normalizarHora(r.fin || r.hora_fin)
+    ].join("|").toLowerCase();
   }
 
   function remoteToLocal(r){
@@ -42,8 +53,8 @@
       id: Number(r.id),
       nombre: r.cliente || r.nombre || "Sesión Fotográfica",
       fecha: r.fecha,
-      inicio: String(r.hora_inicio || "").slice(0,5),
-      fin: String(r.hora_fin || "").slice(0,5),
+      inicio: normalizarHora(r.hora_inicio),
+      fin: normalizarHora(r.hora_fin),
       precio: 280,
       adelanto: 0
     };
@@ -53,8 +64,8 @@
     return {
       cliente: r.nombre || "Sesión Fotográfica",
       fecha: r.fecha,
-      hora_inicio: r.inicio,
-      hora_fin: r.fin,
+      hora_inicio: normalizarHora(r.inicio),
+      hora_fin: normalizarHora(r.fin),
       tipo: "Sesión Fotográfica",
       estado: "reservado"
     };
