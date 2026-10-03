@@ -29,10 +29,8 @@
       const unicos = [];
 
       for(const r of datos){
-        // La fila PRUEBA fue creada durante la configuración y no es una reserva real.
-        const cliente = String(r.cliente || r.nombre || "").trim().toUpperCase();
-        if(cliente === "PRUEBA") continue;
-
+        // Conserva todas las reservas, incluida cualquier fila llamada PRUEBA.
+        // Solo se elimina una fila cuando es idéntica a otra reserva en cliente, fecha y horario.
         const k = clave(r);
         if(vistos.has(k)) continue;
         vistos.add(k);
