@@ -575,8 +575,13 @@ function eliminarReserva(id){
   if(!reserva || !confirm(`¿Eliminar la reserva "${reserva.nombre}"?`)) return;
   reservas = reservas.filter(r=>r.id!==id);
   guardarDatos();
+
+  if(typeof window.eliminarReservaSupabase==="function"){
+    window.eliminarReservaSupabase(reserva);
+  }
+
   actualizarPeriodo();
-render();
+  render();
   abrirDia(fechaSeleccionada);
 }
 
