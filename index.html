@@ -159,8 +159,41 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
   }
 }
 </style>
+
+<style id="ak-toast-style">
+#akToast{
+  position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);
+  background:rgba(18,18,18,.96);color:#fff;border:1px solid #3a3a3a;
+  border-radius:12px;padding:12px 18px;box-shadow:0 10px 30px rgba(0,0,0,.55);
+  font-size:14px;font-weight:700;letter-spacing:.2px;z-index:99999;
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+  max-width:min(90vw,520px);text-align:center;
+}
+#akToast.show{opacity:1;transform:translate(-50%,0);}
+#akToast.error{border-color:#6b2b2b;}
+@media(max-width:600px){
+  #akToast{bottom:18px;font-size:13px;padding:11px 15px;max-width:88vw;}
+}
+</style>
 </head>
 <body>
+
+<div id="akToast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  let akToastTimer=null;
+  window.showToast=function(message,type="success"){
+    const el=document.getElementById("akToast");
+    if(!el) return;
+    clearTimeout(akToastTimer);
+    el.textContent=(type==="error" ? "⚠️ " : "✓ ")+String(message);
+    el.classList.toggle("error",type==="error");
+    el.classList.add("show");
+    akToastTimer=setTimeout(()=>el.classList.remove("show"),2600);
+  };
+})();
+</script>
+
 <div class="app">
 <header>
   <div class="logo"><img src="AKREATIVE BLANCO.png" alt="AKREATIVE"></div>
@@ -610,22 +643,22 @@ function guardarReserva(){
 const adelanto=Number(document.getElementById("adelanto").value) || 0;
 
  if(!nombre || !fecha || !inicio || !fin){
-  alert("Completa todos los campos.");
+  showToast("Completa todos los campos.");
   return;
 }
 
 if(adelanto > precio){
-  alert("El adelanto no puede ser mayor que el precio de la sesión.");
+  showToast("El adelanto no puede ser mayor que el precio de la sesión.");
   return;
 }
 
 if(minutos(fin)<=minutos(inicio)){
-  alert("La hora de término debe ser posterior a la hora de inicio.");
+  showToast("La hora de término debe ser posterior a la hora de inicio.");
   return;
 }
 
 if(minutos(inicio)<9*60 || minutos(fin)>21*60){
-  alert("La agenda funciona de 9:00 a.m. a 9:00 p.m.");
+  showToast("La agenda funciona de 9:00 a.m. a 9:00 p.m.");
   return;
 }
 
@@ -637,7 +670,7 @@ if(minutos(inicio)<9*60 || minutos(fin)>21*60){
   );
 
   if(conflicto){
-    alert(`Ese horario ya está ocupado: ${horaTexto(conflicto.inicio)} – ${horaTexto(conflicto.fin)}.`);
+    showToast(`Ese horario ya está ocupado: ${horaTexto(conflicto.inicio)} – ${horaTexto(conflicto.fin)}.`);
     return;
   }
 
@@ -815,7 +848,7 @@ function exportarAgenda(){
     },"image/png");
   }).catch(err=>{
     console.error(err);
-    alert("No se pudo preparar el fondo para la exportación. Verifica que fond.png y el logo estén junto al index.html.");
+    showToast("No se pudo preparar el fondo para la exportación. Verifica que fond.png y el logo estén junto al index.html.");
   });
 }
 
@@ -867,10 +900,10 @@ async function compartirAgenda(){
       await navigator.share({title:"Agenda AKREATIVE",text:"Disponibilidad AKREATIVE"});
     }else{
       const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.download="agenda-akreative.png"; a.href=url; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-      alert("Tu navegador no permite compartir la imagen directamente. Se descargó la imagen para que puedas enviarla por WhatsApp Business.");
+      showToast("Tu navegador no permite compartir la imagen directamente. Se descargó la imagen para que puedas enviarla por WhatsApp Business.");
     }
   }catch(err){
-    if(err && err.name!=="AbortError") { console.error(err); alert("No se pudo compartir la agenda. Puedes usar EXPORTAR AGENDA COMO IMAGEN."); }
+    if(err && err.name!=="AbortError") { console.error(err); showToast("No se pudo compartir la agenda. Puedes usar EXPORTAR AGENDA COMO IMAGEN."); }
   }
 }
 
@@ -1047,7 +1080,7 @@ async function crearImagenRecordatorio(r,nombre){
 async function generarRecordatorio(){
   const r=reservas.find(x=>x.id===reservaRecordatorioId);if(!r)return;
   const nombre=document.getElementById("nombreRecordatorio").value.trim();
-  if(!nombre){alert("Escribe el nombre que quieres mostrar en el recordatorio.");return;}
+  if(!nombre){showToast("Escribe el nombre que quieres mostrar en el recordatorio.");return;}
   const boton=document.querySelector("#modalRecordatorio .btn-principal");
   const original=boton.textContent;boton.disabled=true;boton.textContent="Generando…";
   try{
@@ -1057,12 +1090,12 @@ async function generarRecordatorio(){
       await navigator.share({title:"Recordatorio AKREATIVE",files:[archivo]});
     }else{
       const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=archivo.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
-      alert("La imagen se descargó. En el celular podrás compartirla por WhatsApp desde el menú de compartir.");
+      showToast("La imagen se descargó. En el celular podrás compartirla por WhatsApp desde el menú de compartir.");
     }
   }catch(err){
     if(err && err.name!=="AbortError"){
       console.error(err);
-      alert("No se pudo compartir automáticamente. La imagen se descargará.");
+      showToast("No se pudo compartir automáticamente. La imagen se descargará.");
       try{const blob=await crearImagenRecordatorio(r,nombre);const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`recordatorio-akreative-${r.fecha}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){console.error(e);}
     }
   }finally{boton.disabled=false;boton.textContent=original;}
