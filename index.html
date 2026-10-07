@@ -603,15 +603,24 @@ actualizarSaldo();
   document.getElementById("nombre").focus();
 }
 
-function eliminarReserva(id){
+async function eliminarReserva(id){
   const reserva = reservas.find(r=>r.id===id);
   if(!reserva || !confirm(`¿Eliminar la reserva "${reserva.nombre}"?`)) return;
-  reservas = reservas.filter(r=>r.id!==id);
-  guardarDatos();
 
+  // Primero eliminamos la fila real en Supabase. Solo si el DELETE confirma
+  // que la fila fue eliminada, quitamos la reserva del almacenamiento local.
   if(typeof window.eliminarReservaSupabase==="function"){
-    window.eliminarReservaSupabase(reserva);
+    try{
+      await window.eliminarReservaSupabase(reserva);
+    }catch(err){
+      console.error("AKREATIVE: no se pudo eliminar la reserva en Supabase",err);
+      showToast("No se pudo eliminar la reserva de Supabase. No se hicieron cambios.", "error");
+      return;
+    }
   }
+
+  reservas = reservas.filter(r=>String(r.id)!==String(id));
+  guardarDatos();
 
   actualizarPeriodo();
   render();
