@@ -1090,7 +1090,9 @@ llenarHorarios();
 actualizarPeriodo();
 render();
 </script>
- <script>
+ <script src="./supabase-fix.js?v=14"></script>
+<script src="./supabase-bridge.js?v=14"></script>
+<script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js");
