@@ -75,6 +75,28 @@
     return await res.json();
   }
 
+  async function eliminarReservaRemota(reserva){
+    if(!reserva) return;
+    const cliente=encodeURIComponent(reserva.nombre || "Sesión Fotográfica");
+    const fecha=encodeURIComponent(reserva.fecha || "");
+    const inicio=encodeURIComponent(normalizarHora(reserva.inicio));
+    const fin=encodeURIComponent(normalizarHora(reserva.fin));
+
+    const url=`${API}?cliente=eq.${cliente}&fecha=eq.${fecha}&hora_inicio=eq.${inicio}&hora_fin=eq.${fin}&select=id`;
+    const res=await fetch(url, {
+      method:"DELETE",
+      headers:headers({"Prefer":"return=representation"}),
+      cache:"no-store"
+    });
+    if(!res.ok) throw new Error(`Supabase DELETE ${res.status}: ${await res.text()}`);
+
+    const borradas=await res.json().catch(()=>[]);
+    if(!Array.isArray(borradas) || borradas.length===0){
+      throw new Error("Supabase DELETE no eliminó ninguna fila. Posible política RLS o datos distintos en Supabase.");
+    }
+    return borradas.map(r=>String(r.id));
+  }
+
   async function deleteRemoteIds(ids){
     const unique=[...new Set(ids.map(id=>String(id)).filter(Boolean))];
     for(const id of unique){
@@ -90,6 +112,7 @@
       }
     }
   }
+
 
   function mostrarEstado(ok,texto){
     let el=document.getElementById("supabaseEstado");
@@ -252,6 +275,19 @@
     window.guardarReserva=wrapped;
     return true;
   }
+
+  window.eliminarReservaSupabase = async function(reserva){
+    try{
+      const ids=await eliminarReservaRemota(reserva);
+      mostrarEstado(true,`☁️ Reserva eliminada en Supabase · ${ids.length}`);
+      return true;
+    }catch(err){
+      console.error("AKREATIVE Supabase DELETE:",err);
+      mostrarEstado(false,"⚠️ No se pudo eliminar en Supabase");
+      guardarBorradosPendientes([reserva.id]);
+      return false;
+    }
+  };
 
   function iniciar(){
     instalarDetectorDeBorrado();
