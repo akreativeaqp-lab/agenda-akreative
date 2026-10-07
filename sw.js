@@ -1,4 +1,4 @@
-const CACHE_NAME = "agenda-akreative-v13";
+const CACHE_NAME = "agenda-akreative-v14";
 
 const FILES_TO_CACHE = [
   "./",
@@ -32,25 +32,14 @@ self.addEventListener("fetch", event => {
       try{
         const response = await fetch(req, {cache:"no-store"});
         const html = await response.text();
-        const inyectado = html.replace(
-          /<\/body>/i,
-          '<script src="./supabase-fix.js?v=13"></script><script src="./supabase-bridge.js?v=13"></script></body>'
-        );
         const headers = new Headers(response.headers);
-        headers.delete("content-length");
-        headers.delete("content-encoding");
-        headers.set("content-type","text/html; charset=utf-8");
         headers.set("cache-control","no-store");
-        return new Response(inyectado,{status:response.status,statusText:response.statusText,headers});
+        return new Response(html,{status:response.status,statusText:response.statusText,headers});
       }catch(err){
         const cached = await caches.match("./index.html");
         if(!cached) return fetch(req);
         const html = await cached.text();
-        const inyectado = html.replace(
-          /<\/body>/i,
-          '<script src="./supabase-fix.js?v=10"></script><script src="./supabase-bridge.js?v=10"></script></body>'
-        );
-        return new Response(inyectado,{status:200,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}});
+        return new Response(html,{status:200,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}});
       }
     })());
     return;
