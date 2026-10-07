@@ -7,6 +7,7 @@
   let syncing = false;
   let savingToRemote = false;
   let writingSyncSnapshot = false;
+  const borradosConfirmados = new Set();
 
   function headers(extra={}){
     return Object.assign({
@@ -114,6 +115,16 @@
   }
 
 
+  window.eliminarReservaSupabase = async function(reserva){
+    if(!reserva || reserva.id === undefined || reserva.id === null){
+      throw new Error("La reserva no tiene un ID de Supabase.");
+    }
+    const id=String(reserva.id);
+    await deleteRemoteIds([id]);
+    borradosConfirmados.add(id);
+    mostrarEstado(true,"☁️ Reserva eliminada en Supabase");
+  };
+
   function mostrarEstado(ok,texto){
     let el=document.getElementById("supabaseEstado");
     if(!el){
@@ -150,9 +161,12 @@
           .filter(r=>r.id !== undefined && r.id !== null && !ahoraIds.has(String(r.id)))
           .map(r=>String(r.id));
 
-        if(borrados.length){
-          guardarBorradosPendientes(borrados);
-          deleteRemoteIds(borrados)
+        const borradosPendientes=borrados.filter(id=>!borradosConfirmados.has(String(id)));
+        borrados.forEach(id=>borradosConfirmados.delete(String(id)));
+
+        if(borradosPendientes.length){
+          guardarBorradosPendientes(borradosPendientes);
+          deleteRemoteIds(borradosPendientes)
             .then(()=>{
               quitarBorradosPendientes(borrados);
               mostrarEstado(true,"☁️ Reserva eliminada en Supabase");
