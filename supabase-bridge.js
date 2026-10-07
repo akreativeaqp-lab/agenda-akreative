@@ -78,12 +78,16 @@
   async function deleteRemoteIds(ids){
     const unique=[...new Set(ids.map(id=>String(id)).filter(Boolean))];
     for(const id of unique){
-      const res=await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
+      const res=await fetch(`${API}?id=eq.${encodeURIComponent(id)}&select=id`, {
         method:"DELETE",
-        headers:headers({"Prefer":"return=minimal"}),
+        headers:headers({"Prefer":"return=representation"}),
         cache:"no-store"
       });
       if(!res.ok) throw new Error(`Supabase DELETE ${res.status}: ${await res.text()}`);
+      const borradas=await res.json().catch(()=>[]);
+      if(!Array.isArray(borradas) || borradas.length===0){
+        throw new Error(`Supabase DELETE no eliminó la fila id=${id}. Posible política RLS o ID incorrecto.`);
+      }
     }
   }
 
@@ -118,10 +122,10 @@
       originalSetItem.call(this,keyName,value);
 
       if(keyName === "akreative_reservas" && !writingSyncSnapshot){
-        const ahoraIds=new Set(nuevo.map(r=>Number(r.id)).filter(Number.isFinite));
+        const ahoraIds=new Set(nuevo.map(r=>String(r.id)).filter(Boolean));
         const borrados=anterior
-          .filter(r=>Number.isFinite(Number(r.id)) && !ahoraIds.has(Number(r.id)))
-          .map(r=>Number(r.id));
+          .filter(r=>r.id !== undefined && r.id !== null && !ahoraIds.has(String(r.id)))
+          .map(r=>String(r.id));
 
         if(borrados.length){
           guardarBorradosPendientes(borrados);
