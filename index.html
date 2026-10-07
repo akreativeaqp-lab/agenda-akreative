@@ -110,6 +110,18 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
  .leyenda{gap:18px;font-size:16px}.color{width:14px;height:14px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.campo.full{grid-column:1/-1}.modal{padding:12px}.modal-box{padding:18px;border-radius:14px}.modal-box h2{font-size:22px}.form-actions button{flex:1}
 }
 
+.confirmar-box{width:min(420px,100%);background:#111;border:1px solid #333;border-radius:18px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.75);text-align:center}
+.confirmar-box h2{margin:0 0 10px;font-size:22px}
+.confirmar-texto{color:#bbb;font-size:15px;line-height:1.45;margin:0 0 22px}
+.confirmar-texto strong{color:#fff}
+.confirmar-actions{display:flex;gap:10px;justify-content:center}
+.confirmar-actions button{flex:1;min-height:46px}
+.btn-cancelar{background:#222;color:#ddd;border:1px solid #444;border-radius:10px}
+.btn-eliminar{background:#e51d2a;color:#fff;border:0;border-radius:10px;font-weight:700}
+@media(max-width:600px){
+  .confirmar-box{padding:22px 18px}
+  .confirmar-box h2{font-size:21px}
+}
 .recordatorio-box{width:min(500px,100%);background:#111;border:1px solid #333;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
 .recordatorio-box h2{margin:0 0 18px;font-size:24px}
 .recordatorio-ayuda{font-size:12px;color:#aaa;margin-top:7px;line-height:1.35}
@@ -226,6 +238,17 @@ button{border:none;border-radius:8px;padding:13px 20px;font-size:15px;font-weigh
     <div class="reservas-lista" id="listaDia"></div>
     <div class="form-actions">
       <button class="btn-principal" onclick="abrirReservaDesdeDia()">＋ Agregar horario</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalConfirmarEliminar" aria-hidden="true">
+  <div class="confirmar-box">
+    <h2>ELIMINAR RESERVA</h2>
+    <p class="confirmar-texto">¿Seguro que deseas eliminar <strong id="nombreReservaEliminar"></strong>?</p>
+    <div class="confirmar-actions">
+      <button type="button" class="btn-cancelar" onclick="resolverConfirmacionEliminar(false)">CANCELAR</button>
+      <button type="button" class="btn-eliminar" onclick="resolverConfirmacionEliminar(true)">ELIMINAR</button>
     </div>
   </div>
 </div>
@@ -603,9 +626,38 @@ actualizarSaldo();
   document.getElementById("nombre").focus();
 }
 
+let confirmacionEliminarResolver = null;
+
+function confirmarEliminarReserva(nombre){
+  return new Promise(resolve=>{
+    confirmacionEliminarResolver=resolve;
+    const modal=document.getElementById("modalConfirmarEliminar");
+    const nombreEl=document.getElementById("nombreReservaEliminar");
+    if(nombreEl) nombreEl.textContent=String(nombre || "esta reserva");
+    if(modal){
+      modal.classList.add("abierto");
+      modal.setAttribute("aria-hidden","false");
+    }
+  });
+}
+
+function resolverConfirmacionEliminar(valor){
+  const modal=document.getElementById("modalConfirmarEliminar");
+  if(modal){
+    modal.classList.remove("abierto");
+    modal.setAttribute("aria-hidden","true");
+  }
+  const resolver=confirmacionEliminarResolver;
+  confirmacionEliminarResolver=null;
+  if(resolver) resolver(Boolean(valor));
+}
+
 async function eliminarReserva(id){
   const reserva = reservas.find(r=>r.id===id);
-  if(!reserva || !confirm(`¿Eliminar la reserva "${reserva.nombre}"?`)) return;
+  if(!reserva) return;
+
+  const confirmado=await confirmarEliminarReserva(reserva.nombre);
+  if(!confirmado) return;
 
   // Primero eliminamos la fila real en Supabase. Solo si el DELETE confirma
   // que la fila fue eliminada, quitamos la reserva del almacenamiento local.
