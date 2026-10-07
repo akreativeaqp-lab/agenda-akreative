@@ -235,6 +235,20 @@
     }finally{ syncing=false; }
   }
 
+  async function actualizarRemota(id, reserva){
+    const res=await fetch(`${API}?id=eq.${encodeURIComponent(String(id))}`,{
+      method:"PATCH",
+      headers:headers({"Prefer":"return=representation"}),
+      body:JSON.stringify(localToRemote(reserva)),
+      cache:"no-store"
+    });
+    if(!res.ok) throw new Error(`Supabase UPDATE ${res.status}: ${await res.text()}`);
+    const actualizadas=await res.json().catch(()=>[]);
+    if(!Array.isArray(actualizadas) || actualizadas.length===0){
+      throw new Error(`Supabase UPDATE no encontró la fila id=${id}`);
+    }
+  }
+
   async function guardarNuevas(nuevas){
     if(!nuevas.length || savingToRemote) return;
     savingToRemote=true;
@@ -263,31 +277,47 @@
     if(original.__akSupabaseWrapped) return true;
 
     const wrapped=function(){
-      const antes=new Set(leerReservasLocales().map(key));
+      const antes=leerReservasLocales().map(r=>Object.assign({},r));
       original.apply(this,arguments);
-      setTimeout(()=>{
+
+      setTimeout(async()=>{
         const despues=leerReservasLocales();
-        const nuevas=despues.filter(r=>r.fecha&&r.inicio&&r.fin&&!antes.has(key(r)));
-        if(nuevas.length) guardarNuevas(nuevas);
+        const antesPorId=new Map(antes.map(r=>[String(r.id),r]));
+        const despuesPorId=new Map(despues.map(r=>[String(r.id),r]));
+
+        const editadas=[];
+        for(const [id,actual] of despuesPorId){
+          const anterior=antesPorId.get(id);
+          if(!anterior) continue;
+          if(key(anterior)!==key(actual)){
+            editadas.push({id,actual});
+          }
+        }
+
+        try{
+          for(const item of editadas){
+            await actualizarRemota(item.id,item.actual);
+          }
+
+          const idsEditados=new Set(editadas.map(x=>String(x.id)));
+          const nuevas=despues.filter(r=>
+            r.fecha&&r.inicio&&r.fin&&
+            !antesPorId.has(String(r.id))&&
+            !idsEditados.has(String(r.id))
+          );
+
+          if(nuevas.length) await guardarNuevas(nuevas);
+          else if(editadas.length) await sincronizar();
+        }catch(err){
+          console.error("AKREATIVE Supabase edición:",err);
+          mostrarEstado(false,"⚠️ No se pudo actualizar en Supabase");
+        }
       },200);
     };
     wrapped.__akSupabaseWrapped=true;
     window.guardarReserva=wrapped;
     return true;
   }
-
-  window.eliminarReservaSupabase = async function(reserva){
-    try{
-      const ids=await eliminarReservaRemota(reserva);
-      mostrarEstado(true,`☁️ Reserva eliminada en Supabase · ${ids.length}`);
-      return true;
-    }catch(err){
-      console.error("AKREATIVE Supabase DELETE:",err);
-      mostrarEstado(false,"⚠️ No se pudo eliminar en Supabase");
-      guardarBorradosPendientes([reserva.id]);
-      return false;
-    }
-  };
 
   function iniciar(){
     instalarDetectorDeBorrado();
