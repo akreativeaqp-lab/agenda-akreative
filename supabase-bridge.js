@@ -35,7 +35,7 @@
 
   function remoteToLocal(r){
     return {
-      id: Number(r.id),
+      id: r.id,
       nombre: r.cliente || r.nombre || "Sesión Fotográfica",
       fecha: r.fecha,
       inicio: normalizarHora(r.hora_inicio),
@@ -76,7 +76,7 @@
   }
 
   async function deleteRemoteIds(ids){
-    const unique=[...new Set(ids.map(Number).filter(Number.isFinite))];
+    const unique=[...new Set(ids.map(id=>String(id)).filter(Boolean))];
     for(const id of unique){
       const res=await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
         method:"DELETE",
@@ -124,11 +124,15 @@
           .map(r=>Number(r.id));
 
         if(borrados.length){
+          guardarBorradosPendientes(borrados);
           deleteRemoteIds(borrados)
-            .then(()=>mostrarEstado(true,"☁️ Reserva eliminada en Supabase"))
+            .then(()=>{
+              quitarBorradosPendientes(borrados);
+              mostrarEstado(true,"☁️ Reserva eliminada en Supabase");
+            })
             .catch(err=>{
               console.error("AKREATIVE Supabase DELETE:",err);
-              mostrarEstado(false,"⚠️ No se pudo eliminar en Supabase");
+              mostrarEstado(false,"⚠️ Borrado pendiente de sincronizar");
             });
         }
       }
@@ -138,10 +142,37 @@
     Storage.prototype.setItem=wrappedSetItem;
   }
 
+  function leerBorradosPendientes(){
+    try{
+      const v=JSON.parse(localStorage.getItem("akreative_borrados_pendientes") || "[]");
+      return Array.isArray(v) ? v.map(String).filter(Boolean) : [];
+    }catch(e){ return []; }
+  }
+
+  function guardarBorradosPendientes(ids){
+    const actuales=leerBorradosPendientes();
+    const todos=[...new Set([...actuales,...ids.map(String).filter(Boolean)])];
+    localStorage.setItem("akreative_borrados_pendientes",JSON.stringify(todos));
+  }
+
+  function quitarBorradosPendientes(ids){
+    const eliminar=new Set(ids.map(String));
+    const restantes=leerBorradosPendientes().filter(id=>!eliminar.has(String(id)));
+    localStorage.setItem("akreative_borrados_pendientes",JSON.stringify(restantes));
+  }
+
+  async function procesarBorradosPendientes(){
+    const pendientes=leerBorradosPendientes();
+    if(!pendientes.length) return;
+    await deleteRemoteIds(pendientes);
+    quitarBorradosPendientes(pendientes);
+  }
+
   async function sincronizar(){
     if(syncing) return;
     syncing=true;
     try{
+      await procesarBorradosPendientes();
       const locales=leerReservasLocales().slice();
       const remotos=await getRemote();
       const mapaPagos=new Map(locales.map(r=>[key(r),{precio:r.precio??280,adelanto:r.adelanto??0}]));
