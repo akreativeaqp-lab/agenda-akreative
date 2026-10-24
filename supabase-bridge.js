@@ -365,7 +365,8 @@
           else if(editadas.length) await sincronizar();
         }catch(err){
           console.error("AKREATIVE Supabase edición:",err);
-          mostrarEstado(false,"⚠️ No se pudo actualizar en Supabase");
+          const detalle=err && err.message ? String(err.message) : "Error desconocido";
+          mostrarEstado(false,"⚠️ " + detalle.slice(0,120));
         }
       },200);
     };
