@@ -529,7 +529,9 @@ function llenarHorarios(){
     for(let m of [0,30]){
       if(h===21 && m===30) continue;
       const v=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
-      opciones.push(`<option value="${v}">${horaTexto(v)}</option>`);
+      const hora12 = h % 12 || 12;
+      const periodo = h >= 12 ? "PM" : "AM";
+      opciones.push(`<option value="${v}">${hora12}:${String(m).padStart(2,"0")} ${periodo}</option>`);
     }
   }
   ["inicio","fin"].forEach(id=>{
