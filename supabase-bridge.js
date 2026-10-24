@@ -249,7 +249,19 @@
     }finally{ syncing=false; }
   }
 
-  async function actualizarRemota(id, reserva){
+  async function consultarRemota(filtros){
+    const params=new URLSearchParams({
+      select:"id,cliente,fecha,hora_inicio,hora_fin",
+      ...filtros
+    });
+    const res=await fetch(`${API}?${params.toString()}`,{
+      headers:headers(), cache:"no-store"
+    });
+    if(!res.ok) throw new Error(`Supabase SELECT ${res.status}: ${await res.text()}`);
+    return await res.json();
+  }
+
+  async function enviarActualizacion(id, reserva){
     const res=await fetch(`${API}?id=eq.${encodeURIComponent(String(id))}`,{
       method:"PATCH",
       headers:headers({"Prefer":"return=representation"}),
@@ -257,10 +269,39 @@
       cache:"no-store"
     });
     if(!res.ok) throw new Error(`Supabase UPDATE ${res.status}: ${await res.text()}`);
-    const actualizadas=await res.json().catch(()=>[]);
-    if(!Array.isArray(actualizadas) || actualizadas.length===0){
-      throw new Error(`Supabase UPDATE no encontró la fila id=${id}`);
+    return await res.json().catch(()=>[]);
+  }
+
+  async function actualizarRemota(id, reserva, anterior){
+    let actualizadas=await enviarActualizacion(id,reserva);
+    if(Array.isArray(actualizadas) && actualizadas.length) return;
+
+    // Distingue un ID inexistente de una actualización bloqueada por políticas RLS.
+    const porId=await consultarRemota({id:`eq.${String(id)}`});
+    if(Array.isArray(porId) && porId.length){
+      throw new Error(`Supabase encontró la fila id=${id}, pero no permitió actualizarla. Revisa la política RLS de UPDATE de la tabla sesiones.`);
     }
+
+    // Si el ID local quedó desfasado, intenta localizar la fila usando los datos anteriores.
+    if(anterior && anterior.fecha && (anterior.nombre || anterior.cliente) && (anterior.inicio || anterior.hora_inicio) && (anterior.fin || anterior.hora_fin)){
+      const coincidencias=await consultarRemota({
+        cliente:`eq.${anterior.nombre || anterior.cliente}`,
+        fecha:`eq.${anterior.fecha}`,
+        hora_inicio:`eq.${normalizarHora(anterior.inicio || anterior.hora_inicio)}`,
+        hora_fin:`eq.${normalizarHora(anterior.fin || anterior.hora_fin)}`
+      });
+      if(Array.isArray(coincidencias) && coincidencias.length===1){
+        const idReal=coincidencias[0].id;
+        actualizadas=await enviarActualizacion(idReal,reserva);
+        if(Array.isArray(actualizadas) && actualizadas.length) return;
+        const verificacion=await consultarRemota({id:`eq.${String(idReal)}`});
+        if(Array.isArray(verificacion) && verificacion.length){
+          throw new Error(`La fila id=${idReal} existe, pero Supabase no permitió actualizarla. Revisa la política RLS de UPDATE.`);
+        }
+      }
+    }
+
+    throw new Error(`Supabase no encontró una fila actualizable para el ID ${id}. No se creó otra reserva para evitar duplicados.`);
   }
 
   async function guardarNuevas(nuevas){
@@ -304,13 +345,13 @@
           const anterior=antesPorId.get(id);
           if(!anterior) continue;
           if(key(anterior)!==key(actual)){
-            editadas.push({id,actual});
+            editadas.push({id,actual,anterior});
           }
         }
 
         try{
           for(const item of editadas){
-            await actualizarRemota(item.id,item.actual);
+            await actualizarRemota(item.id,item.actual,item.anterior);
           }
 
           const idsEditados=new Set(editadas.map(x=>String(x.id)));
