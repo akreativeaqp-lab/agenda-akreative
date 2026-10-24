@@ -1,4 +1,4 @@
-const CACHE_NAME = "agenda-akreative-v17";
+const CACHE_NAME = "agenda-akreative-v18";
 
 const FILES_TO_CACHE = [
   "./",
