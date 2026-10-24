@@ -1,4 +1,4 @@
-const CACHE_NAME = "agenda-akreative-v15";
+const CACHE_NAME = "agenda-akreative-v16";
 
 const FILES_TO_CACHE = [
   "./",
@@ -26,6 +26,9 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const req = event.request;
+
+  // Las llamadas a Supabase deben ir directamente a la red, sin pasar por el caché del Service Worker.
+  if (new URL(req.url).hostname.endsWith(".supabase.co")) return;
 
   if(req.mode === "navigate"){
     event.respondWith((async () => {
